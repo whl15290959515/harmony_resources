@@ -1,0 +1,294 @@
+                                                                                  
+                                              Sharing of Development Technology for the "Imitation Box Horse" App - Newcomer Exclusive Coupon (End Cloud Integration)
+
+
+
+Development Preparation
+
+In the previous article, we achieved the cloud-edge integration upgrade for the project. Going forward, our data will be obtained from the cloud-side database. Now, we will start the cloud-edge integration transformation of the project from scratch. We have already extracted the new user exclusive coupon as a public component on the home page.
+
+Now we continue with the functional development to modify the local data display of this component to fetch from the edge side.
+
+Functional Analysis
+
+We will take the home page functionality implemented earlier for transformation.​ On the home page, we have implemented a new user coupon center. The data structure includes the module title, description, and a coupon list. The list contains the coupon amount, type, and we also need to add other parameters to the coupon, such as redemption time, redeeming user, etc. This extends to a feature where when the user is not logged in, clicking "Redeem Now" should navigate to the user login page.
+
+Since the cloud database does not support foreign keys, we use multiple inserted ID fields for data querying.
+
+Code Implementation
+
+First, we create the tables.
+
+home_new_people_coupon - This is the table for the home page activity module:
+
+json
+{
+  "objectTypeName": "home_new_people_coupon",
+  "fields": [
+    {"fieldName": "activity_id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "title", "fieldType": "String", "notNull": true, "defaultValue": 0},
+    {"fieldName": "msg", "fieldType": "String"},
+    {"fieldName": "home_coupon_activity_id", "fieldType": "Integer"},
+    {"fieldName": "router", "fieldType": "String"},
+    {"fieldName": "activity_time", "fieldType": "String"}
+  ],
+  "indexes": [
+    {"indexName": "home_coupon_activity_id_index", "indexList": [{"fieldName":"home_coupon_activity_id","sortType":"ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+
+Next, we create the coupon list table under the corresponding activity ID:
+
+coupon_info
+
+json
+{
+  "objectTypeName": "coupon_info",
+  "fields": [
+    {"fieldName": "coupon_id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "home_coupon_activity_id", "fieldType": "Integer", "notNull": true, "defaultValue": 0},
+    {"fieldName": "price", "fieldType": "String"},
+    {"fieldName": "type", "fieldType": "String"},
+    {"fieldName": "get_time", "fieldType": "String"},
+    {"fieldName": "limit_amount", "fieldType": "Integer"},
+    {"fieldName": "txt", "fieldType": "String"},
+    {"fieldName": "activity_id", "fieldType": "Integer"}
+  ],
+  "indexes": [
+    {"indexName": "couponIdIndex", "indexList": [{"fieldName":"coupon_id","sortType":"ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+
+After completing the table creation, we insert the data:
+
+json
+{
+  "cloudDBZoneName": "default",
+  "objectTypeName": "home_new_people_coupon",
+  "objects": [
+    {
+      "activity_id": 10,
+      "title": "New User Activity",
+      "msg": "Free shipping for the first three orders",
+      "home_coupon_activity_id": 10,
+      "router": "Route",
+      "activity_time": "2025-4-3"
+    }
+  ]
+}
+
+json
+{
+  "cloudDBZoneName": "default",
+  "objectTypeName": "coupon_info",
+  "objects": [
+    {
+      "coupon_id": 10,
+      "home_coupon_activity_id": 10,
+      "price": "10",
+      "type": "New User Exclusive",
+      "get_time": "2025-3-18",
+      "limit_amount": 30,
+      "txt": "string1",
+      "activity_id": 1
+    },
+    {
+      "coupon_id": 20,
+      "home_coupon_activity_id": 10,
+      "price": "string2",
+      "type": "string2",
+      "get_time": "string2",
+      "limit_amount": 20,
+      "txt": "string2",
+      "activity_id": 1
+    },
+    {
+      "coupon_id": 30,
+      "home_coupon_activity_id": 10,
+      "price": "string1",
+      "type": "string1",
+      "get_time": "string1",
+      "limit_amount": 10,
+      "txt": "string1",
+      "activity_id": 1
+    },
+    {
+      "coupon_id": 40,
+      "home_coupon_activity_id": 10,
+      "price": "string2",
+      "type": "string2",
+      "get_time": "string2",
+      "limit_amount": 20,
+      "txt": "string2",
+      "activity_id": 1
+    }
+  ]
+}
+
+After inserting all the data, we synchronize the content to the cloud database, then create corresponding classes for client model and server model.
+
+Once all these steps are completed, we can directly perform data queries on the index page.
+
+First, create objects to receive data:
+
+
+@State home_new_people_coupon: homeNewPeopleCoupon | null = null
+@State couponList: couponInfo[] = []
+
+Then perform the query:
+
+
+let databaseZone = cloudDatabase.zone('default');
+let condition = new cloudDatabase.DatabaseQuery(home_new_people_coupon);
+let condition1 = new cloudDatabase.DatabaseQuery(coupon_info);
+let listData = await databaseZone.query(condition);
+let json = JSON.stringify(listData)
+let data: homeNewPeopleCoupon = JSON.parse(json)
+this.home_new_people_coupon = data;
+let listData1 = await databaseZone.query(condition1);
+condition1.equalTo("home_coupon_activity_id", data.home_coupon_activity_id)
+
+let json1 = JSON.stringify(listData1)
+let data1: couponInfo[] = JSON.parse(json1)
+this.couponList = data1
+
+We can see that the cloud data has been queried successfully.
+
+Next, we modify the data and submit it to the cloud:
+
+json
+{
+  "cloudDBZoneName": "default",
+  "objectTypeName": "coupon_info",
+  "objects": [
+    {
+      "coupon_id": 10,
+      "home_coupon_activity_id": 10,
+      "price": "10",
+      "type": "New User Exclusive",
+      "get_time": "2025-3-18",
+      "limit_amount": 30,
+      "txt": "string1",
+      "activity_id": 1
+    },
+    {
+      "coupon_id": 20,
+      "home_coupon_activity_id": 10,
+      "price": "15",
+      "type": "New User Exclusive",
+      "get_time": "string2",
+      "limit_amount": 20,
+      "txt": "string2",
+      "activity_id": 1
+    },
+    {
+      "coupon_id": 30,
+      "home_coupon_activity_id": 10,
+      "price": "20",
+      "type": "New User Exclusive",
+      "get_time": "string1",
+      "limit_amount": 10,
+      "txt": "string1",
+      "activity_id": 1
+    },
+    {
+      "coupon_id": 40,
+      "home_coupon_activity_id": 10,
+      "price": "30",
+      "type": "New User Exclusive",
+      "get_time": "string2",
+      "limit_amount": 20,
+      "txt": "string2",
+      "activity_id": 1
+    }
+  ]
+}
+
+Then modify the new user activity component we created earlier:
+
+
+import { couponInfo } from "../entity/couponInfo"
+import { homeNewPeopleCoupon } from "../entity/homeNewPeopleCoupon"
+
+@Component
+@Preview
+export struct CouponComponent {
+  @Link home_activity: homeNewPeopleCoupon | null
+  @Link couponList: couponInfo[]
+
+
+  build() {
+    Column() {
+      Row() {
+        Text(this.home_activity?.title)
+          .fontSize(20)
+          .fontColor('#FF0000')
+
+        Text(this.home_activity?.msg)
+          .fontSize(14)
+          .fontColor('#888888')
+          .margin({left:10})
+      }
+      .width('100%')
+      .padding(16)
+
+      List({ space: 10 }) {
+        ForEach(this.couponList, (item: couponInfo) => {
+          ListItem() {
+            Column() {
+              Text(item.price)
+                .fontSize(22)
+                .fontColor('#FF4444')
+                .margin({ bottom: 8 })
+
+              Text(item.type)
+                .fontSize(12)
+                .fontColor('#FF4444')
+            }
+            .padding(10)
+            .backgroundColor("#ffffff")
+            .borderRadius(8)
+          }
+        })
+      }
+      .margin({left:50})
+      .listDirection(Axis.Horizontal)
+      .width('100%')
+      .height(80)
+
+      Button('Redeem Now', { type: ButtonType.Normal })
+        .width(240)
+        .height(40)
+        .backgroundColor('#FF0000')
+        .fontColor(Color.White)
+        .borderRadius(20)
+        .margin({ bottom: 16 })
+        .onClick(()=>{
+          console.log(`"router"`)
+        })
+    }
+    .backgroundColor("#fffce2be")
+    .width('95%')
+    .margin({top:20})
+    .borderRadius(20)
+  }
+}
+
+The home page invokes the component and passes parameters:
+
+
+CouponComponent({home_activity: this.home_new_people_coupon, couponList: this.couponList})
+
+With this, our new user activity function is completed.
