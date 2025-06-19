@@ -1,0 +1,284 @@
+Technical Stack
+Appgallery connect
+
+Development Preparation
+In the previous section, we implemented coupon query on the order confirmation page, but lacked other coupon-related logic. Our goal is to use corresponding coupons during order settlement. Now, we need to enable coupon selection on the order confirmation page, presenting it in a pop-up window for user convenience.
+
+Functional Analysis
+To display coupons in a pop-up window:
+
+Create a custom pop-up dialog.
+Query all coupon data to show both usable and unusable coupons.
+Inform users of usable coupon amounts and the remaining amount needed for unusable coupons to be valid.
+Allow clicking on usable coupons to modify the settlement amount and display the selected coupon amount.
+
+Code Implementation
+First, create the pop-up window with two-way binding for coupon amount:
+
+
+@Preview
+@CustomDialog
+export struct CouponCheckDialog {
+  @State user: User | null = null
+  @State couponList: CouponMall[] = []
+  controller: CustomDialogController;
+  @State lessThanLimit: CouponMall[] = []
+  @State greaterOrEqualLimit: CouponMall[] = []
+  @Prop price: number
+  @Link couponPrice: number
+
+  async aboutToAppear(): Promise<void> {
+    const value = await StorageUtils.getAll('user');
+    if (value != "") {
+      this.user = JSON.parse(value)
+    }
+    let databaseZone = cloudDatabase.zone('default');
+    let condition = new cloudDatabase.DatabaseQuery(coupon_mall);
+    condition.equalTo("user_id", this.user?.user_id)
+    let listData = await databaseZone.query(condition);
+    let json = JSON.stringify(listData)
+    let data: CouponMall[] = JSON.parse(json)
+    this.couponList = data
+
+    this.splitCouponsByLimit(data, this.price)
+  }
+
+  @Builder
+  Header(type: number) {
+    Text(type == 0 ? "Usable Coupons" : "Unusable Coupons")
+      .width('100%')
+      .padding(10)
+      .textAlign(TextAlign.Start)
+      .fontColor(Color.Black)
+      .fontSize(16)
+  }
+
+  @Builder
+  Item(item: CouponMall) {
+    Column({ space: 10 }) {
+      Row({ space: 10 }) {
+        Column() {
+          Text("¥" + item.price)
+            .fontSize(30)
+            .fontColor(Color.Red)
+            .fontWeight(FontWeight.Bold)
+          Text("Valid for orders over ¥" + item.limit_amount)
+            .fontColor(Color.Red)
+            .fontWeight(FontWeight.Bold)
+            .fontSize(12)
+        }
+
+        Column({ space: 10 }) {
+          Text(item.type_str)
+            .fontColor(Color.Black)
+            .fontWeight(FontWeight.Bold)
+            .fontSize(16)
+
+          Text(item.txt)
+            .fontColor(Color.Grey)
+            .fontSize(12)
+        }
+
+        Blank()
+        Text("Ready to Use")
+          .width(80)
+          .height(80)
+          .borderRadius(40)
+          .fontSize(14)
+          .textAlign(TextAlign.Center)
+          .fontColor(Color.White)
+          .backgroundColor(Color.Red)
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.SpaceBetween)
+
+      Divider().width('100%').height(0.8)
+        .color("#e6e6e6")
+      Text("Valid from " + item.start_time + " to " + item.end_time)
+        .fontSize(12)
+        .fontColor(Color.Grey)
+    }
+    .margin({ top: 10 })
+    .padding(10)
+    .backgroundColor(Color.White)
+    .borderRadius(10)
+    .onClick(() => {
+      this.couponPrice = item.price
+      this.controller.close()
+    })
+  }
+
+  @Builder
+  NotItem(item: CouponMall) {
+    Column({ space: 10 }) {
+      Row({ space: 10 }) {
+        Column() {
+          Text("¥" + item.price)
+            .fontSize(30)
+            .fontColor(Color.Grey)
+            .fontWeight(FontWeight.Bold)
+          Text("Valid for orders over ¥" + item.limit_amount)
+            .fontColor(Color.Grey)
+            .fontWeight(FontWeight.Bold)
+            .fontSize(12)
+        }
+
+        Column({ space: 10 }) {
+          Text(item.type_str)
+            .fontColor(Color.Grey)
+            .fontWeight(FontWeight.Bold)
+            .fontSize(16)
+
+          Text(item.txt)
+            .fontColor(Color.Grey)
+            .fontSize(12)
+        }
+
+        Blank()
+        Text("Unusable")
+          .width(80)
+          .height(80)
+          .borderRadius(40)
+          .fontSize(14)
+          .textAlign(TextAlign.Center)
+          .fontColor(Color.White)
+          .backgroundColor(Color.Grey)
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.SpaceBetween)
+
+      Divider().width('100%').height(0.8)
+        .color("#e6e6e6")
+
+      Text("Valid from " + item.start_time + " to " + item.end_time)
+        .fontSize(12)
+        .fontColor(Color.Grey)
+      Text() {
+        Span("Reason for unavailability: ")
+          .fontColor(Color.Red)
+          .fontSize(12)
+        Span("Order amount needs ¥")
+          .fontColor(Color.Gray)
+          .fontSize(12)
+        Span("" + (item.limit_amount - this.price))
+          .fontColor(Color.Red)
+          .fontSize(12)
+        Span(" more to meet the threshold")
+          .fontColor(Color.Gray)
+          .fontSize(12)
+      }
+      .backgroundColor("#fffacfcf")
+      .padding(5)
+      .borderRadius(5)
+    }
+    .margin({ top: 10 })
+    .padding(10)
+    .backgroundColor(Color.White)
+    .borderRadius(10)
+    .onClick(() => {
+      showToast("Coupon is not usable")
+    })
+  }
+
+  build() {
+    Column() {
+      Text("Select Coupon")
+        .fontSize(18)
+        .fontColor(Color.Black)
+        .fontWeight(FontWeight.Bold)
+        .width('100%')
+        .textAlign(TextAlign.Center)
+        .padding(10)
+        .backgroundColor(Color.White)
+
+      List({ space: 10 }) {
+        ListItemGroup({ header: this.Header(0) }) {
+          ForEach(this.lessThanLimit, (item: CouponMall, index: number) => {
+            ListItem() {
+              this.Item(item)
+            }
+          })
+        }
+        ListItemGroup({ header: this.Header(1) }) {
+          ForEach(this.greaterOrEqualLimit, (item: CouponMall, index: number) => {
+            ListItem() {
+              this.NotItem(item)
+            }
+          })
+        }
+      }
+      .padding(10)
+
+      Button("Confirm Selection", { type: ButtonType.Normal })
+        .width('90%')
+        .height(50)
+        .backgroundColor(Color.Red)
+        .fontColor(Color.White)
+        .borderRadius(25)
+        .margin({ top: 20, bottom: 30 })
+        .onClick(() => {
+          this.controller.close()
+        })
+    }
+    .width('100%')
+    .backgroundColor(Color.White)
+  }
+
+  splitCouponsByLimit(coupons: CouponMall[], price: number) {
+    const lessThanLimit = coupons.filter(coupon =>
+      coupon.limit_amount <= price
+    );
+    this.lessThanLimit = lessThanLimit;
+
+    const greaterOrEqualLimit = coupons.filter(coupon =>
+      coupon.limit_amount > price
+    );
+    this.greaterOrEqualLimit = greaterOrEqualLimit;
+  }
+}
+
+Reference the pop-up in the order confirmation page:
+
+
+couponController: CustomDialogController | null = new CustomDialogController({
+  builder: CouponCheckDialog({
+    couponPrice: this.couponPrice,
+    price: this.price()
+  }),
+  alignment: DialogAlignment.Bottom,
+  customStyle: true
+});
+
+Modify the coupon display component logic:
+
+
+Row() {
+  Text("Coupons")
+    .fontSize(14)
+    .fontColor(Color.Black)
+
+  if (this.getCoupon() > 0) {
+    if (this.couponPrice > 0) {
+      Text("Selected: -¥" + this.couponPrice + " >")
+        .fontSize(14)
+        .fontColor(Color.Red)
+        .onClick(() => {
+          this.couponController?.open()
+        })
+    } else {
+      Text(this.getCoupon() + " available >")
+        .fontSize(14)
+        .fontColor(Color.Red)
+        .onClick(() => {
+          this.couponController?.open()
+        })
+    }
+  } else {
+    Text("No available coupons")
+      .fontSize(14)
+      .fontColor(Color.Black)
+  }
+}
+.padding(10)
+.width('100%')
+.justifyContent(FlexAlign.SpaceBetween)
