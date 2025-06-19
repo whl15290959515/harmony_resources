@@ -1,0 +1,246 @@
+Technology Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we implemented all linkage effects for the category page. This section focuses on completing a new page: the fourth module of the main interface, the personal center page. This module will display user information and entry points to various user-related functions.
+
+Functional Analysis
+To implement the personal center page, we first plan the overall layout from top to bottom, divided into three sections:
+
+User information display
+Key information display
+Entry list for various user-related functions
+
+Code Implementation
+1. Create Entity Class for List Data
+typescript
+export class SectionLine {
+  title: string;
+  subtitle: string;
+  url: string | ResourceStr;
+  showDividerLine: boolean;
+
+  constructor(title: string, subtitle: string, url: string | ResourceStr, showDividerLine: boolean) {
+    this.title = title;
+    this.subtitle = subtitle;
+    this.url = url;
+    this.showDividerLine = showDividerLine;
+  }
+}
+
+Note: The url type is defined as a union type for flexibility in future modifications.
+2. Add Sample Data for Entry Points
+typescript
+import { SectionLine } from "../entity/SectionLine";
+
+export class SectionLineViewModel {
+  getSectionListOne(): Array<SectionLine> {
+    const listData: SectionLine[] = [
+      new SectionLine("Orders", "", $r('app.media.order'), true),
+      new SectionLine("Address Book", "Set frequently used addresses", $r('app.media.address'), false)
+    ];
+    return listData;
+  }
+
+  getSectionListTwo(): Array<SectionLine> {
+    const listData: SectionLine[] = [
+      new SectionLine("About", "", $r('app.media.guanyu'), true)
+    ];
+    return listData;
+  }
+}
+
+export default new SectionLineViewModel();
+3. Implement the Personal Center Page Layout
+typescript
+import { SectionLine } from '../entity/SectionLine';
+import SectionLineViewModel from '../model/SectionLineViewModel';
+
+@Component
+export struct Mine {
+  @State num: number = 0;
+
+  @Builder
+  MenuItem(item: SectionLine) {
+    Column() {
+      Row() {
+        Image(item.url)
+          .width(20)
+          .height(20)
+          .objectFit(ImageFit.Cover)
+          .interpolation(ImageInterpolation.High);
+        Text(item.title)
+          .margin({ left: 10 })
+          .fontColor("#ff333333")
+          .fontSize(16);
+        Blank().layoutWeight(1);
+        Text(item.subtitle)
+          .fontColor($r('app.color.color_999'))
+          .fontSize(14)
+          .margin({ right: 6 });
+        Image($r('app.media.back_right_recycle'))
+          .width(7)
+          .height(13)
+          .objectFit(ImageFit.Contain)
+          .interpolation(ImageInterpolation.High);
+      }
+      .padding({ left: 13, right: 13 })
+      .alignItems(VerticalAlign.Center)
+      .height($r('app.float.size_49'))
+      .width('100%')
+      .backgroundColor(Color.White);
+      if (item.showDividerLine) {
+        Divider()
+          .width('100%')
+          .height(0.8)
+          .color("#e6e6e6");
+      }
+    }
+    .width('100%');
+  }
+
+  aboutToAppear() {}
+
+  build() {
+    Column() {
+      Stack({ alignContent: Alignment.Top }) {
+        Row()
+          .width('100%')
+          .height('100%')
+          .linearGradient({
+            angle: 180,
+            colors: [[0xff0000, 0], [0xff6666, 0.2], [0xffffff, 1]]
+          });
+        Column() {
+          Row() {
+            Image($r('app.media.background'))
+              .height(55)
+              .width(55)
+              .borderRadius(27)
+              .objectFit(ImageFit.Contain)
+              .interpolation(ImageInterpolation.High);
+            Column() {
+              Text('User 111')
+                .fontSize(24)
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis });
+              Text('vip6')
+                .fontSize(14);
+            }
+            .alignItems(HorizontalAlign.Start)
+            .margin({ left: 10 });
+            Blank().layoutWeight(1);
+            Image($r('app.media.ic_arrow_bold'))
+              .height(16)
+              .width(16)
+              .margin(20)
+              .objectFit(ImageFit.Contain)
+              .interpolation(ImageInterpolation.High);
+          }
+          .justifyContent(FlexAlign.Start)
+          .margin({ top: 30 });
+
+          Row() {
+            Row() {
+              Image($r('app.media.balance'))
+                .margin({ left: 8 })
+                .height(34)
+                .width(34)
+                .objectFit(ImageFit.Contain)
+                .interpolation(ImageInterpolation.High);
+              Column() {
+                Text("￥15")
+                  .fontSize(16)
+                  .fontColor($r('app.color.color_333'));
+                Row() {
+                  Text("Balance")
+                    .fontSize(13)
+                    .fontColor($r('app.color.color_999'));
+                  Image($r('app.media.back_right_recycle'))
+                    .margin({ left: 6 })
+                    .height(14)
+                    .width(14)
+                    .objectFit(ImageFit.Contain)
+                    .interpolation(ImageInterpolation.High);
+                }
+              }
+              .alignItems(HorizontalAlign.Start)
+              .margin({ left: 13 })
+              .onClick(() => {});
+            }
+            .width('40%');
+            Divider()
+              .vertical(true)
+              .height('100%')
+              .margin({ top: 5, bottom: 5 })
+              .margin({ left: 20 });
+            Row() {
+              Image($r('app.media.points'))
+                .height(34)
+                .width(34)
+                .objectFit(ImageFit.Contain)
+                .interpolation(ImageInterpolation.High);
+              Column() {
+                Text("Points Mall")
+                  .fontSize(16)
+                  .fontColor($r('app.color.color_333'));
+                Row() {
+                  Text("Points Redemption")
+                    .fontSize(13)
+                    .fontColor($r('app.color.color_reds'));
+                  Image($r('app.media.back_right_recycle'))
+                    .margin({ left: 6 })
+                    .height(14)
+                    .width(14)
+                    .objectFit(ImageFit.Contain)
+                    .interpolation(ImageInterpolation.High);
+                }
+              }
+              .margin({ left: 8 })
+              .alignItems(HorizontalAlign.Start);
+            }
+            .margin({ left: 8 })
+            .alignItems(VerticalAlign.Center)
+            .width('40%');
+          }
+          .justifyContent(FlexAlign.Start)
+          .height(80)
+          .width('100%')
+          .padding(8)
+          .margin({ top: 40 })
+          .backgroundColor(Color.White)
+          .borderRadius(8);
+        }
+        .padding({ left: 12, right: 12 })
+        .height('100%')
+        .justifyContent(FlexAlign.Center);
+      }
+      .height(180);
+
+      Column() {
+        ForEach(SectionLineViewModel.getSectionListOne(), (item: SectionLine) => {
+          this.MenuItem(item);
+        })
+      }
+      .borderRadius(10)
+      .margin({ top: 35, left: 12, right: 12 });
+      
+      Column() {
+        ForEach(SectionLineViewModel.getSectionListTwo(), (item: SectionLine) => {
+          this.MenuItem(item);
+        })
+      }
+      .width('100%')
+      .borderRadius(10)
+      .margin({ top: 10, left: 12, right: 12 });
+    }
+    .height('100%')
+    .backgroundColor("#f7f7f7")
+    .justifyContent(FlexAlign.Start)
+    .alignItems(HorizontalAlign.Start);
+  }
+}
+
+
+
+Executing the code completes the static implementation of the personal center page, showcasing user information, key balances, and functional entry points as designed.
