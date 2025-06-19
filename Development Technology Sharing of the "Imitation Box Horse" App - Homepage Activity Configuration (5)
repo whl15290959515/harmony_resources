@@ -1,0 +1,180 @@
+Technical Stack
+Appgallery Connect
+
+Development Preparation
+In the previous article, we implemented dynamic configuration for home page modules, enabling backend control over module visibility. This enhanced our app's flexibility and adaptability. Now, we'll extend this configuration system to include banners, activity entrances, and other modules with 较少 data by integrating them into the configuration framework. We'll use corresponding IDs in the configuration table to query related data tables.
+
+Code Implementation
+1. Create Banner Poster Table (home_poster)
+json
+{
+  "objectTypeName": "home_poster",
+  "fields": [
+    {"fieldName": "id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "poster_id", "fieldType": "Integer", "notNull": true, "defaultValue": 0},
+    {"fieldName": "url", "fieldType": "String"},
+    {"fieldName": "router", "fieldType": "String"}
+  ],
+  "indexes": [
+    {"indexName": "posterIdIndex", "indexList": [{"fieldName":"poster_id","sortType":"ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+2. Create Product Activity Entrance Table (home_good_center)
+json
+{
+  "objectTypeName": "home_good_center",
+  "fields": [
+    {"fieldName": "id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "good_left_id", "fieldType": "Integer", "notNull": true, "defaultValue": 0},
+    {"fieldName": "title", "fieldType": "String"},
+    {"fieldName": "url", "fieldType": "String"}
+  ],
+  "indexes": [
+    {"indexName": "goodLeftIdIndex", "indexList": [{"fieldName":"good_left_id","sortType":"ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+3. Populate Data
+Banner Posters
+json
+{
+  "cloudDBZoneName": "default",
+  "objectTypeName": "home_poster",
+  "objects": [
+    {
+      "id": 10,
+      "poster_id": 1,
+      "url": "Online Image URL",
+      "router": "string1"
+    }
+  ]
+}
+Product Activity Entrances
+json
+{
+  "cloudDBZoneName": "default",
+  "objectTypeName": "home_good_center",
+  "objects": [
+    {
+      "id": 10,
+      "good_left_id": 1,
+      "title": "Fresh Selections",
+      "url": "Online Image URL"
+    },
+    {
+      "id": 20,
+      "good_left_id": 1,
+      "title": "New Arrivals",
+      "url": "Online Image URL"
+    },
+    {
+      "id": 30,
+      "good_left_id": 1,
+      "title": "Today's Recommendations",
+      "url": "Online Image URL"
+    }
+  ]
+}
+4. Synchronize Tables and Data to the Cloud
+After populating data, submit the tables and data to the cloud database through AppGallery Connect.
+5. Data Query with Linked IDs
+typescript
+@State homeActivity: HomeActivitySetting[] = []; // Home page activity configuration
+@State homeGoodCenter: HomeGoodCenter[] = []; // Product activity entrances
+
+async fetchHomeData() {
+  try {
+    let databaseZone = cloudDatabase.zone('default');
+    
+    // Query home activity configuration
+    let condition3 = new cloudDatabase.DatabaseQuery(home_activity_setting);
+    let listData3 = await databaseZone.query(condition3);
+    let json3 = JSON.stringify(listData3);
+    let data3: HomeActivitySetting[] = JSON.parse(json3);
+    this.homeActivity = data3;
+    
+    // Query product activity entrances using the linked ID
+    let home_good = new cloudDatabase.DatabaseQuery(home_good_center);
+    home_good.equalTo("good_left_id", data3[0].good_left_id); // Filter by linked ID
+    let list5 = await databaseZone.query(home_good);
+    let json5 = JSON.stringify(list5);
+    let data5: HomeGoodCenter[] = JSON.parse(json5);
+    this.homeGoodCenter = data5;
+    
+    hilog.info(0x0000, 'testTag', `Successfully fetched ${this.homeGoodCenter.length} product activities`);
+  } catch (err) {
+    hilog.error(0x0000, 'testTag', `Failed to query data, code: ${err.code}, message: ${err.message}`);
+  }
+}
+6. Modify Product Activity Entrance Component
+typescript
+import { HomeGoodCenter } from "../entity/HomeGoodCenter"
+
+@Component
+@Preview
+export struct SpecialColumn {
+  @Link goodInfo: HomeGoodCenter[]
+
+  build() {
+    Column() {
+      List({ space: 10 }) {
+        ForEach(this.goodInfo, (data: HomeGoodCenter) => {
+          ListItem() {
+            Column() {
+              Text(data.title)
+                .fontSize(16)
+                .fontWeight(FontWeight.Bold)
+                .fontColor(Color.Black)
+              Blank()
+              Image(data.url)
+                .width('28%')
+                .height(90)
+                .margin({ bottom: 8 })
+                .objectFit(ImageFit.Cover)
+            }
+            .borderRadius(5)
+            .backgroundColor("#ffeedeb8")
+            .padding(5)
+          }
+        })
+      }
+      .listDirection(Axis.Horizontal)
+    }
+    .margin({ top: 10 })
+  }
+}
+7. Integrate into Home Page
+typescript
+// In the home page component
+build() {
+  Column() {
+    // Conditionally render based on configuration
+    if (this.homeActivity[0]?.banner_status) {
+      // Render banner using home_poster data
+    }
+    
+    if (this.homeActivity[0]?.goods_list_status) {
+      SpecialColumn({ goodInfo: this.homeGoodCenter })
+    }
+    
+    // Other modules...
+  }
+}
+Implementation Result
+After running the application:
+
+The product activity entrances (from home_good_center) are displayed based on the linked ID (good_left_id) retrieved from the configuration table (home_activity_setting).
+Modifying the good_left_id in the configuration table will dynamically update the displayed product activities.
+
+This completes the implementation of activity configuration with linked data tables, enabling flexible management of home page modules through backend configuration.
