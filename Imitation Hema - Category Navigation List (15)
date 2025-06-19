@@ -1,0 +1,173 @@
+Technology Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we implemented most functions for the shopping cart product list, including product addition, deletion, quantity adjustment, price calculation, and cloud communication. Now, we continue to transform the project. This section focuses on reconstructing the category page, which was previously implemented in a non-cloud-integrated project. We will convert it to a cloud-integrated model and enable click 联动 (click linkage) between the diamond zone and the category page.
+
+Functional Analysis
+Category List
+Handle state changes (e.g., font and background color) when switching between items from the home page.
+Implement list switching and item selection logic.
+
+Code Implementation
+1. Diamond Zone Data Model Modification
+json
+{
+  "objectTypeName": "split_layout",
+  "fields": [
+    {"fieldName": "split_id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "txt", "fieldType": "String"},
+    {"fieldName": "url", "fieldType": "String"},
+    {"fieldName": "router", "fieldType": "String"},
+    {"fieldName": "is_login", "fieldType": "Boolean"},
+    {"fieldName": "child_id", "fieldType": "Integer"},
+    {"fieldName": "bt_state", "fieldType": "Integer"}
+  ],
+  "indexes": [
+    {"indexName": "splitId_Index", "indexList": [{"fieldName":"split_id","sortType":"ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+
+Added child_id to facilitate targeted data queries.
+2. Entity Class (SplitLayoutModel.ts)
+typescript
+export class SplitLayoutModel {
+    split_id: number;
+    txt: string;
+    url: string;
+    router: string;
+    is_login: boolean;
+    child_id: number;
+    bt_state: number;
+
+    constructor() {}
+
+    // ... (getter/setter and metadata methods)
+
+    static parseFrom(inputObject: any): SplitLayoutModel {
+        const result = new SplitLayoutModel();
+        if (!inputObject) return result;
+        if (inputObject.split_id) result.split_id = inputObject.split_id;
+        if (inputObject.txt) result.txt = inputObject.txt;
+        if (inputObject.url) result.url = inputObject.url;
+        if (inputObject.router) result.router = inputObject.router;
+        if (inputObject.is_login !== undefined) result.is_login = inputObject.is_login;
+        if (inputObject.child_id !== undefined) result.child_id = inputObject.child_id;
+        if (inputObject.bt_state !== undefined) result.bt_state = inputObject.bt_state;
+        return result;
+    }
+}
+3. Diamond Zone Click Event with Index Passing
+Define state and callback in the diamond zone component:
+typescript
+@State pos_check: number = 0;
+private onItemClick?: (pos: number) => void;
+
+Trigger callback on click:
+typescript
+.onClick(() => {
+  this.onItemClick!(index);
+})
+
+Control tab switching in the home page:
+typescript
+SplitLayout({
+  listData: this.splitList,
+  onItemClick: (pos) => {
+    this.controller.changeIndex(1);
+    this.pos_check = pos;
+  }
+})
+
+4. Category Page Top Navigation Component (Classification.ets)
+typescript
+import { cloudDatabase } from "@kit.CloudFoundationKit";
+import { split_layout } from "../clouddb/split_layout";
+import { SplitLayoutModel } from "../entity/SplitLayoutModel";
+
+@Preview
+@Component
+export struct Classification {
+  private listScroller: Scroller = new Scroller();
+  @Link selectedIndex: number;
+  @State list: SplitLayoutModel[] = [];
+  @State flag: boolean = false;
+
+  async aboutToAppear(): Promise<void> {
+    const databaseZone = cloudDatabase.zone('default');
+    const condition = new cloudDatabase.DatabaseQuery(split_layout);
+    const listData = await databaseZone.query(condition);
+    this.list = JSON.parse(JSON.stringify(listData)).map(SplitLayoutModel.parseFrom);
+    this.flag = true;
+  }
+
+  build() {
+    Row() {
+      List({ scroller: this.listScroller, space: 10 }) {
+        ForEach(this.list, (item: SplitLayoutModel, index: number) => {
+          ListItem() {
+            Column() {
+              Image(item.url)
+                .width(40)
+                .height(40)
+                .borderRadius(20)
+                .border({ width: this.selectedIndex === index ? 2 : 0, color: "#409EFF" });
+              Text(item.txt)
+                .textAlign(TextAlign.Center)
+                .fontSize(10)
+                .padding(2)
+                .margin({ top: 5 })
+                .fontColor(this.selectedIndex === index ? "#FFFFFF" : "#000000")
+                .backgroundColor(this.selectedIndex === index ? "#409EFF" : "#FFFFFF")
+                .borderRadius(this.selectedIndex === index ? 15 : 0);
+            }
+            .onClick(() => {
+              this.selectedIndex = this.selectedIndex === index ? 0 : index;
+              this.listScroller.scrollToIndex(index, true, ScrollAlign.CENTER);
+            });
+          }
+        });
+      }
+      .scrollBar(BarState.Off)
+      .height(65)
+      .width('90%')
+      .listDirection(Axis.Horizontal);
+
+      // "All Categories" button
+      Column() {
+        Text("全")
+          .fontSize(14)
+          .fontColor(Color.Black);
+        Text("部")
+          .fontSize(14)
+          .fontColor(Color.Black);
+        Image($r('app.media.all'))
+          .height(20)
+          .width(20);
+      }
+      .onClick(() => {
+        // Open category dialog (implementation omitted)
+      })
+      .padding(5);
+    }
+    .justifyContent(FlexAlign.SpaceBetween)
+    .height(90)
+    .width('100%')
+    .margin({ top: 20 });
+  }
+}
+5. Home Page Integration
+typescript
+Classification({ selectedIndex: this.pos_check });
+
+Implementation Result
+When clicking "Home Textiles & Apparel" in the diamond zone, the system:
+
+Navigates to the category page.
+Highlights the corresponding item in the category list, demonstrating successful click linkage between the diamond zone and the category page.
