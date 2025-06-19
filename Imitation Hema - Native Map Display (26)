@@ -1,0 +1,258 @@
+Technology Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we implemented the function to obtain the current user's location and successfully retrieved the latitude and longitude. In this section, we will use the obtained latitude and longitude, combined with other knowledge points, to implement map display.
+
+Functional Analysis
+For map display:
+
+We need to enable the map API function for the corresponding application in the management center; otherwise, the map cannot be displayed.
+We must configure self-signed certificates; failure to do so will also prevent the map function from working.
+We need to check whether the application has network permissions enabled.
+Before displaying the map, we must verify whether location permissions have been obtained.
+
+Code Implementation
+First, check if location permissions are enabled before entering the page:
+
+typescript
+bundleManager.getBundleInfoForSelf(bundleFlags).then((data) => {
+
+}).catch((err: BusinessError) => {
+  hilog.error(0x0000, 'testTag', 'getBundleInfoForSelf failed. Cause: %{public}s', err.message);
+});
+
+To implement this function, we also need to obtain the app's acctokenid:
+
+typescript
+bundleManager.getBundleInfoForSelf(bundleFlags).then((data) => {
+  let atManager: abilityAccessCtrl.AtManager = abilityAccessCtrl.createAtManager();
+  atManager.checkAccessToken(data.appInfo.accessTokenId, 'ohos.permission.LOCATION').then((status: abilityAccessCtrl.GrantStatus) => {
+    if (status === 0) {
+      this.addressSetting = true;
+      this.locationKey = true;
+      this.reqPermissionsFromUser(permissions);
+    }
+  }).catch((err: BusinessError) => {
+    console.error(`checkAccessToken fail, err->${JSON.stringify(err)}`);
+  });
+}).catch((err: BusinessError) => {
+  hilog.error(0x0000, 'testTag', 'getBundleInfoForSelf failed. Cause: %{public}s', err.message);
+});
+
+We then judge based on the returned status. When status equals 0, we execute reqPermissionsFromUser to obtain the current location's latitude and longitude, and initialize map parameters and callbacks within this function:
+
+typescript
+this.mapOptions = {
+  position: {
+    target: {
+      latitude: locationInfo.latitude,
+      longitude: locationInfo.longitude
+    },
+    zoom: 10
+  }
+};
+this.callback = async (err, mapController) => {
+  if (!err) {
+    this.mapController = mapController;
+    this.mapEventManager = this.mapController.getEventManager();
+    let callback = () => {
+      console.info("TAG", "on-mapLoad");
+    }
+    this.mapEventManager.on("mapLoad", callback);
+  }
+};
+
+Next, add the corresponding lifecycle methods:
+
+typescript
+onPageShow(): void {
+  if (this.mapController) {
+    this.mapController.show();
+  }
+}
+
+onPageHide(): void {
+  if (this.mapController) {
+    this.mapController.hide();
+  }
+}
+
+The map display is now implemented. Execute the code to see the effect:
+
+
+image
+
+The map is successfully displayed. The complete code is as follows:
+
+typescript
+import { MapComponent, mapCommon, map } from '@kit.MapKit';
+import { AsyncCallback, BusinessError } from '@kit.BasicServicesKit';
+import PermissionDialogWidget from '../dialog/PermissionDialogWidget';
+import { geoLocationManager } from '@kit.LocationKit';
+import { abilityAccessCtrl, bundleManager, common, Permissions } from '@kit.AbilityKit';
+import { hilog } from '@kit.PerformanceAnalysisKit';
+
+const permissions: Array<Permissions> = ['ohos.permission.APPROXIMATELY_LOCATION', 'ohos.permission.LOCATION'];
+let bundleFlags = bundleManager.BundleFlag.GET_BUNDLE_INFO_WITH_APPLICATION;
+
+@Entry
+@Component
+struct PushAddressPage {
+  private mapOptions?: mapCommon.MapOptions;
+  private callback?: AsyncCallback<map.MapComponentController>;
+  private mapController?: map.MapComponentController;
+  private mapEventManager?: map.MapEventManager;
+
+  @State flag: boolean = false;
+  @State ss: number = 0;
+  @State locationKey: boolean = false;
+  @State addressSetting: boolean = false;
+  
+  permissionController: CustomDialogController = new CustomDialogController({
+    builder: PermissionDialogWidget({
+      titleText: "Permission Explanation",
+      contentText: "Location permission is required for address selection. Once granted, this permission will be reused for address selection without re-requesting. Denying this permission will not affect other app functions."
+    }),
+    alignment: DialogAlignment.Top
+  });
+  
+  @State locationInfo: geoLocationManager.ReverseGeoCodeRequest | null = null;
+
+  aboutToAppear(): void {
+    try {
+      let locationEnabled = geoLocationManager.isLocationEnabled();
+      if (locationEnabled) {
+        this.addressSetting = true;
+        bundleManager.getBundleInfoForSelf(bundleFlags).then((data) => {
+          let atManager: abilityAccessCtrl.AtManager = abilityAccessCtrl.createAtManager();
+          atManager.checkAccessToken(data.appInfo.accessTokenId, 'ohos.permission.LOCATION').then((status: abilityAccessCtrl.GrantStatus) => {
+            if (status === 0) {
+              this.addressSetting = true;
+              this.locationKey = true;
+              this.reqPermissionsFromUser(permissions);
+            }
+          }).catch((err: BusinessError) => {
+            console.error(`checkAccessToken fail, err->${JSON.stringify(err)}`);
+          });
+        }).catch((err: BusinessError) => {
+          hilog.error(0x0000, 'testTag', 'getBundleInfoForSelf failed. Cause: %{public}s', err.message);
+        });
+      } else {
+        this.addressSetting = false;
+      }
+    } catch (err) {
+      console.error("errCode:" + err.code + ", message:" + err.message);
+    }
+  }
+
+  build() {
+    if (this.flag) {
+      Column() {
+        Stack({ alignContent: Alignment.Bottom }) {
+          Column() {
+            MapComponent({ mapOptions: this.mapOptions, mapCallback: this.callback }).width('100%').height('100%');
+          }
+          .layoutWeight(1);
+
+          if (this.addressSetting && !this.locationKey) {
+            Row() {
+              Text().width(40);
+              Text("Location Not Enabled").fontColor(Color.Black);
+              Text("Enable Location")
+                .fontColor(Color.White)
+                .backgroundColor(Color.Pink)
+                .borderRadius(10)
+                .padding(10)
+                .onClick(() => {
+                  this.reqPermissionsFromUser(permissions);
+                  this.permissionController.open();
+                });
+            }
+            .padding(10)
+            .borderRadius(5)
+            .margin({ bottom: 30 })
+            .backgroundColor('#33000000')
+            .justifyContent(FlexAlign.SpaceAround)
+            .width('90%');
+          }
+        }
+        .backgroundColor(Color.White)
+        .height('100%')
+        .width('100%');
+      }
+    }
+  }
+
+  reqPermissionsFromUser(permissions: Array<Permissions>): void {
+    let context = getContext(this) as common.UIAbilityContext;
+    let atManager = abilityAccessCtrl.createAtManager();
+    atManager.requestPermissionsFromUser(context, permissions).then((data) => {
+      let grantStatus: Array<number> = data.authResults;
+      let length: number = grantStatus.length;
+      for (let i = 0; i < length; i++) {
+        if (grantStatus[i] === 0) {
+          this.locationKey = true;
+          this.permissionController.close();
+          let request: geoLocationManager.SingleLocationRequest = {
+            'locatingPriority': geoLocationManager.LocatingPriority.PRIORITY_LOCATING_SPEED,
+            'locatingTimeoutMs': 10000
+          };
+          try {
+            geoLocationManager.getCurrentLocation(request).then((result) => {
+              console.log('current location: ' + JSON.stringify(result));
+              let locationInfo: geoLocationManager.ReverseGeoCodeRequest = result;
+              this.mapOptions = {
+                position: {
+                  target: {
+                    latitude: locationInfo.latitude,
+                    longitude: locationInfo.longitude
+                  },
+                  zoom: 10
+                }
+              };
+              this.callback = async (err, mapController) => {
+                if (!err) {
+                  this.mapController = mapController;
+                  this.mapEventManager = this.mapController.getEventManager();
+                  let callback = () => {
+                    console.info("TAG", `on-mapLoad`);
+                  }
+                  this.mapEventManager.on("mapLoad", callback);
+                }
+              };
+              this.flag = true;
+            })
+            .catch((error: BusinessError) => {
+              console.error('promise, getCurrentLocation: error=' + JSON.stringify(error));
+            });
+          } catch (err) {
+            console.error("errCode:" + JSON.stringify(err));
+          }
+        } else {
+          this.locationKey = false;
+          this.permissionController.close();
+          return;
+        }
+      }
+    }).catch((err: Error) => {
+      console.error(`requestPermissionsFromUser failed, code is ${err.name}, message is ${err.message}`);
+    });
+  }
+
+  aboutToDisappear() {
+    this.permissionController = undefined; // Set dialogController to undefined
+  }
+
+  onPageShow(): void {
+    if (this.mapController) {
+      this.mapController.show();
+    }
+  }
+
+  onPageHide(): void {
+    if (this.mapController) {
+      this.mapController.hide();
+    }
+  }
+}
