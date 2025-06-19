@@ -1,0 +1,247 @@
+Technical Stack
+Appgallery connect
+
+Development Preparation
+In the previous section, we implemented the withdrawal page and business logic for some components. For security reasons, we've added a security lock feature. When enabled, users must verify their locally stored password with the cloud before any withdrawal can proceed. This additional layer of security better protects user assets by ensuring that only authorized users can initiate withdrawals.
+
+Function Analysis
+To implement this feature:
+
+Add a security entry on the personal profile page.
+Create a security lock settings page with an enable/disable toggle.
+When enabling the lock for the first time, show a dialog prompting the user to set a pattern password.
+Save the encrypted password to the cloud database for future verification.
+When disabling the lock, delete the stored password from the cloud.
+
+Code Implementation
+Add Security Entry to Personal Profile Page
+
+
+new SectionLine("Security",
+  "Set Security Lock",
+  $r('app.media.anquan'),
+  false),
+
+Add Click Event Handler
+
+
+if (item.title === 'Security') {
+  if (this.user != null) {
+    router.pushUrl({ url: 'pages/view/LockPage' });
+  } else {
+    showToast("Please log in first");
+  }
+}
+
+Create Security Lock Database Table
+
+
+{
+  "objectTypeName": "verify_info",
+  "fields": [
+    {"fieldName": "id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "open_lock", "fieldType": "Boolean"},
+    {"fieldName": "lock_str", "fieldType": "String"},
+    {"fieldName": "user_id", "fieldType": "Integer"}
+  ],
+  "indexes": [
+    {"indexName": "field1Index", "indexList": [{"fieldName": "id", "sortType": "ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+
+Create Security Lock Page
+
+
+@State user: User | null = null;
+@State flag: boolean = false;
+@State lockInfo: VerifyInfo | null = null;
+@State lock_ui_visibility: boolean = false;
+
+Column({ space: 10 }) {
+  CommonTopBar({ title: "Security Lock", alpha: 0, titleAlignment: TextAlign.Center, backButton: true });
+  Row() {
+    Text("Security Lock")
+      .fontColor(Color.Black)
+      .fontSize(16);
+    Image(this.lock_ui_visibility ? $r('app.media.kai') : $r('app.media.guan'))
+      .width(60)
+      .height(30)
+      .onClick(() => {
+        // Handle toggle logic
+      });
+  }
+  .width('100%')
+  .justifyContent(FlexAlign.SpaceBetween)
+  .padding({ left: 10, right: 10 });
+  Divider().width('100%').height(0.8)
+    .color("#e6e6e6")
+  .width('100%');
+}
+.width('100%').height('100%').backgroundColor(Color.White);
+
+Create Security Lock Dialog
+
+
+import { LengthUnit } from '@kit.ArkUI';
+
+@Preview
+@CustomDialog
+export struct LockDialog {
+  @State passwords: Number[] = [];
+  @Link lock_ui_visibility: boolean;
+  @State message: string = 'Draw your password pattern!';
+  public callback: (passwords: string) => void = (): void => { };
+  private patternLockController: PatternLockController = new PatternLockController();
+  controller: CustomDialogController;
+
+  build() {
+    Column({ space: 20 }) {
+      Text(this.message).textAlign(TextAlign.Center).margin(20).fontSize(20)
+        .fontColor(Color.Black);
+      PatternLock(this.patternLockController)
+        .sideLength(300)
+        .circleRadius(9)
+        .pathStrokeWidth(5)
+        .activeColor('#707070')
+        .selectedColor('#707070')
+        .pathColor('#707070')
+        .backgroundColor('#F5F5F5')
+        .autoReset(true)
+        .activateCircleStyle({
+          color: '#707070',
+          radius: { value: 16, unit: LengthUnit.VP },
+          enableWaveEffect: true
+        })
+        .onDotConnect((index: number) => {
+          console.log("onDotConnect index: " + index);
+        })
+        .onPatternComplete((input: Array<number>) => {
+          if (input.length < 5) {
+            this.message = 'Pattern must connect at least 5 dots';
+            return;
+          }
+          if (this.passwords.length > 0) {
+            if (this.passwords.toString() === input.toString()) {
+              this.passwords = input;
+              this.message = 'Pattern password set successfully';
+              this.patternLockController.setChallengeResult(PatternLockChallengeResult.CORRECT);
+              const str: string = JSON.stringify(this.passwords);
+              this.callback(str);
+              this.controller.close();
+            } else {
+              this.message = 'Pattern mismatch. Please try again.';
+              this.patternLockController.setChallengeResult(PatternLockChallengeResult.WRONG);
+            }
+          } else {
+            this.passwords = input;
+            this.message = "Please redraw the pattern to confirm.";
+          }
+        });
+    }
+    .borderRadius({ topLeft: 20, topRight: 20 })
+    .justifyContent(FlexAlign.Start)
+    .backgroundColor(Color.White)
+    .height(500)
+    .width('100%');
+  }
+}
+
+Integrate Dialog into Page
+
+
+private dialogController: CustomDialogController = new CustomDialogController({
+  builder: LockDialog({
+    lock_ui_visibility: this.lock_ui_visibility,
+    callback: async (str: string) => {
+      let info = new verify_info();
+      info.id = Math.floor(Math.random() * 1000000);
+      info.open_lock = true;
+      info.lock_str = str;
+      info.user_id = this.user!.user_id;
+      let num = await databaseZone.upsert(info);
+      if (num > 0) {
+        this.lock_ui_visibility = true;
+        this.initLockInfo();
+        showToast("Security lock enabled successfully");
+      }
+    }
+  }),
+  alignment: DialogAlignment.Bottom,
+  customStyle: false
+});
+
+Load User Data and Security Lock Status
+
+
+async initLockInfo() {
+  const value = await StorageUtils.getAll('user');
+  if (value != "") {
+    this.user = JSON.parse(value);
+  }
+  let databaseZone = cloudDatabase.zone('default');
+  let condition = new cloudDatabase.DatabaseQuery(verify_info);
+  condition.equalTo("user_id", this.user?.user_id);
+  let listData = await databaseZone.query(condition);
+  let json = JSON.stringify(listData);
+  let data: VerifyInfo[] = JSON.parse(json);
+  if (data.length > 0) {
+    this.lock_ui_visibility = true;
+    this.lockInfo = data[0];
+  } else {
+    this.lock_ui_visibility = false;
+  }
+}
+
+async aboutToAppear(): Promise<void> {
+  this.initLockInfo();
+}
+
+Implement Toggle Logic
+
+
+build() {
+  Column({ space: 10 }) {
+    CommonTopBar({ title: "Security Lock", alpha: 0, titleAlignment: TextAlign.Center, backButton: true });
+    Row() {
+      Text("Security Lock")
+        .fontColor(Color.Black)
+        .fontSize(16);
+      Image(this.lock_ui_visibility ? $r('app.media.kai') : $r('app.media.guan'))
+        .width(60)
+        .height(30)
+        .onClick(async () => {
+          if (this.lock_ui_visibility) {
+            // Disable lock
+            if (this.lockInfo) {
+              let info = new verify_info();
+              info.id = this.lockInfo.id;
+              let num = await databaseZone.delete(info);
+              if (num > 0) {
+                this.lock_ui_visibility = false;
+                showToast("Security lock disabled");
+              }
+            }
+          } else {
+            // Enable lock
+            this.dialogController.open();
+          }
+        });
+    }
+    .width('100%')
+    .justifyContent(FlexAlign.SpaceBetween)
+    .padding({ left: 10, right: 10 });
+    Divider().width('100%').height(0.8)
+      .color("#e6e6e6")
+    .width('100%');
+  }
+  .width('100%').height('100%').backgroundColor(Color.White);
+}
+
+
+Execute the code to test the security lock functionality. Users can now enable/disable the security lock, set a pattern password, and the system will securely store and verify the password during withdrawals.
