@@ -1,0 +1,298 @@
+Technical Stack
+Appgallery connect
+
+Development Preparation
+In the previous section, we implemented the query for recycling fund income and expenditure records, and successfully created corresponding income and expenditure records after order completion. However, we currently only have income records and no expenditure records. In this section, we will implement the recycling fund withdrawal function for accounts to achieve the positive cycle of the app from a business perspective.
+
+Function Analysis
+To implement the withdrawal function, we first need corresponding bank card information binding, withdrawal amount, and the total recycling fund of the current account. From a business perspective, we should also limit the total amount of recycling funds that can be withdrawn within a day to avoid unnecessary losses in certain situations. First, we need to determine whether the current account has bound corresponding information, then use conditional judgments on input components to restrict incorrect user operations, and finally add confirmation withdrawal and withdrawal record buttons.
+
+Code Implementation
+First, create the corresponding binding information table:
+
+
+{
+  "objectTypeName": "bind_bank",
+  "fields": [
+    {"fieldName": "id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "user_id", "fieldType": "Integer"},
+    {"fieldName": "bank_name", "fieldType": "String"},
+    {"fieldName": "bank_card", "fieldType": "String"},
+    {"fieldName": "bank_people", "fieldType": "String"},
+    {"fieldName": "is_verify", "fieldType": "Boolean"},
+    {"fieldName": "verify_id", "fieldType": "Integer"}
+  ],
+  "indexes": [
+    {"indexName": "field1Index", "indexList": [{"fieldName":"id","sortType":"ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+
+Implement the bank card binding module using component import, handling the display logic for bound and unbound states:
+
+
+import { BindBank } from "../../entity/BindBank"
+
+@Component
+export struct BindAlipay {
+  @Link bankList:BindBank[]
+  public callback:()=>void=():void=>{}
+  public postCallback:()=>void=():void=>{}
+
+
+  @Builder
+  notAlipay(){
+    Row(){
+      Image($r('app.media.tv_card'))
+        .height(17)
+        .width(17)
+        .margin({left:14})
+
+      Text("You haven't bound a bank card account yet, click to bind")
+        .fontColor("#FF4242")
+        .fontSize(16)
+    }
+    .backgroundColor(Color.White)
+    .padding(10)
+    .margin({bottom:50})
+    .onClick(e=>{
+      this.callback()
+    })
+    .height(48)
+    .width('100%')
+  }
+
+
+
+
+  @Builder bindAlipay(){
+    Row(){
+      Column(){
+        Row(){
+          Image($r('app.media.tv_card'))
+            .height(17)
+            .width(17)
+            .margin({left:14})
+          Text("12212")
+            .fontColor("#333333")
+            .fontSize(16)
+        }
+        Text("Expected to arrive within 2 hours (subject to actual arrival time)")
+          .fontColor("#999999")
+          .fontSize(15)
+      }
+      Image($r('app.media.back_right_recycle'))
+        .height(30)
+        .width(30)
+    }
+  }
+  build() {
+    Column() {
+      if (this.bankList.length>0){
+        this.bindAlipay()
+
+      }else {
+        this.notAlipay()
+      }
+
+    }
+  }
+}
+
+Implement the withdrawal amount input module:
+
+
+@Component
+export struct InputItem {
+  @Consume
+  moneyNum:number
+  @State text: string = ''
+  controller: TextInputController = new TextInputController()
+  @Consume
+  isPost:boolean
+
+  build() {
+    Column() {
+      Row() {
+        Text("Withdrawal Amount")
+          .fontSize(16)
+          .fontColor("#333333")
+        Text("Minimum withdrawal per transaction is 1 yuan")
+          .fontSize(14)
+          .fontColor("#FF4242")
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.SpaceBetween)
+      Row() {
+        Text("¥")
+          .fontSize(28)
+          .fontColor("#333333")
+        TextInput({ text: this.text, placeholder: 'Enter withdrawal amount', controller: this.controller })
+          .placeholderColor("#999999")
+          .placeholderFont({ size: 28, weight: 400 })
+          .caretColor("#FCDB29")
+          .width(400)
+          .height(50)
+          .backgroundColor(null)
+          .type(InputType.Number)
+          .margin(20)
+          .fontSize(14)
+          .fontColor(Color.Black)
+          .onChange((value: string) => {
+            this.moneyNum=Number(value)
+            this.text = value
+            if (this.moneyNum>0&&this.moneyNum<=300) {
+              this.isPost=true
+            }else {
+              this.isPost=false
+            }
+          })
+      }
+      Divider().width('100%').height(1)
+      Text("Withdrawable amount ¥1500.00 (Daily maximum withdrawal limit: 300)")
+        .fontSize(15)
+        .fontColor("#333333")
+    }
+    .padding(10)
+    .backgroundColor(Color.White)
+    .alignItems(HorizontalAlign.Start)
+  }
+}
+
+Use @Provide and @Consume to facilitate cross-component value acquisition for better logical judgment:
+
+
+Column({space:15}){
+              Text("Confirm Withdrawal")
+                .width('100%')
+                .fontColor(Color.White)
+                .borderRadius(15)
+                .padding(10)
+                .textAlign(TextAlign.Center)
+                .fontColor(this.isPost?Color.Black:Color.White)
+                .backgroundColor(this.isPost?"#ffff6363":$r('app.color.color_999'))
+                .onClick(()=>{
+                  if (this.isPost) {
+                    // Launch pop-up window
+                  }else {
+                    if (this.moneyNum==0){
+                      showToast("Minimum withdrawal amount is 1 yuan per transaction")
+                    }
+                    if (this.moneyNum>300) {
+                      showToast('Daily limit is 300 yuan, please re-enter')
+                    }
+                  }
+                })
+
+              Text("View Withdrawal Records")
+                .width('100%')
+                .fontColor(Color.Black)
+                .textAlign(TextAlign.Center)
+                .backgroundColor("#ffffff")
+                .padding(10)
+                .borderRadius(15)
+            }
+            .margin({top:50})
+
+Call the component on the main page:
+
+
+import { BindBank } from "../../entity/BindBank"
+import showToast from "../../utils/ToastUtils"
+import { CommonTopBar } from "../../widget/CommonTopBar"
+import { BindAlipay } from "./BindAlipay"
+import { InputItem } from "./InputItem"
+
+@Entry
+@Component
+export default struct WithdrawMoneyPage {
+  @State fontColor: string = '#182431'
+  @State selectedFontColor: string = '#007DFF'
+  @State currentIndex: number = 0
+  @State alipayAcc:string=''
+  @State bindAlipayName:string=''
+  @State phoneCode:string=''
+
+  @Provide
+  isPost:boolean=false
+
+  @Provide
+  moneyNum:number=0
+
+  @State bankList:BindBank[]=[]
+  
+
+  @Builder TabBuilder(index: number, name: string) {
+    Row() {
+      Image($r('app.media.tv_card'))
+        .height(17)
+        .width(17)
+        .margin({left:15})
+      Text(name)
+        .fontColor(this.currentIndex === index ? this.selectedFontColor : this.fontColor)
+        .fontSize(16)
+        .fontWeight(this.currentIndex === index ? 500 : 400)
+        .lineHeight(22)
+    }
+    .height(55)
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
+  }
+
+
+
+  build() {
+    Column() {
+      CommonTopBar({ title: "Withdraw", alpha: 0, titleAlignment: TextAlign.Center ,backButton:true})
+          Column(){
+            BindAlipay({bankList:this.bankList,
+              callback:()=>{},
+              postCallback:()=>{}})
+            InputItem()
+
+            Column({space:15}){
+              Text("Confirm Withdrawal")
+                .width('100%')
+                .fontColor(Color.White)
+                .borderRadius(15)
+                .padding(10)
+                .textAlign(TextAlign.Center)
+                .fontColor(this.isPost?Color.Black:Color.White)
+                .backgroundColor(this.isPost?"#ffff6363":$r('app.color.color_999'))
+                .onClick(()=>{
+                  if (this.isPost) {
+                    // Launch pop-up window
+                  }else {
+                    if (this.moneyNum==0){
+                      showToast("Minimum withdrawal amount is 1 yuan per transaction")
+                    }
+                    if (this.moneyNum>300) {
+                      showToast('Daily limit is 300 yuan, please re-enter')
+                    }
+                  }
+                })
+
+              Text("View Withdrawal Records")
+                .width('100%')
+                .fontColor(Color.Black)
+                .textAlign(TextAlign.Center)
+                .backgroundColor("#ffffff")
+                .padding(10)
+                .borderRadius(15)
+            }
+            .margin({top:50})
+          }
+          .backgroundColor('#F1F3F5')
+          .height('100%')
+          .justifyContent(FlexAlign.Start)
+          .padding(10)
+    }
+  }
+}
+
+After completing the implementation, execute the code to view the effect.
