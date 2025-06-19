@@ -1,0 +1,265 @@
+Technical Stack
+Appgallery Connect
+
+Development Preparation
+The main shopping functions of our app have been developed relatively comprehensively. Next, we will iterate and modify the logic of each function to make our program more robust and reduce logical bugs.
+
+Function Analysis
+In previous development, the shopping cart function was implemented. However, during subsequent use, it was found that when adding new products, there were cases where products couldn't be added. This is mainly because in the product specification pop-up window SpecDialog, we used @Provide for the user. Here, we replace it with @State. In the shopping cart, when some or all items are not selected and the user clicks "Checkout", they can still be redirected to the order confirmation page, which is a logical issue. We need to optimize the logic for the unselected state.
+
+Code Implementation
+First, optimize the addition logic in the specification pop-up window:
+
+javascript
+Row(){
+  Text("Add to Cart")
+    .width('70%')
+    .borderRadius(30)
+    .textAlign(TextAlign.Center)
+    .fontColor(Color.Black)
+    .margin({top:70})
+    .height(40)
+    .fontSize(18)
+    .fontWeight(FontWeight.Bold)
+    .backgroundColor("#FCDB29")
+    .onClick(async ()=>{
+      try {
+        if (this.user==null&&this.user==undefined) {
+          showToast("Please log in first")
+          return
+        }
+        let databaseZone = cloudDatabase.zone('default');
+        let condition = new cloudDatabase.DatabaseQuery(cart_product_list);
+        condition.equalTo("productId",this.product?.id).and().equalTo("productSpecId",this.specList[this.checkIndex].id)
+        let listData = await databaseZone.query(condition);
+        let json = JSON.stringify(listData)
+        hilog.info(0x0000, 'testTag', `Succeeded in upserting data, result: ${json}`);
+        let request:CartProductList[]=JSON.parse(json)
+        let cartPush = new cart_product_list();
+
+        if (request.length>0) {
+          let data:CartProductList=request[0]
+          cartPush.id=data.id;
+          if (this.user!=null) {
+            cartPush.user_id=this.user!.user_id
+          }
+          cartPush.productId=data.productId// Product ID
+          cartPush.productSpecId=data.productSpecId// Specification ID
+          cartPush.productName=data.productName// Product Name
+          cartPush.productSpecName=data.productSpecName
+          cartPush.productImgAddress=data.productImgAddress
+          cartPush.buyAmount=this.addNumber+data.buyAmount// Quantity
+          cartPush.isNeedPay=data.isNeedPay// Selected or not, default true
+          cartPush.activityType=data.activityType// Activity type, none for now
+          cartPush.productPrice=data.productPrice// Price
+          cartPush.productOriginalPrice=data.productOriginalPrice// Original price
+          cartPush.couponPrice=data.couponPrice
+        } else {
+          cartPush.id=Math.floor(Math.random() * 1000000);
+          cartPush.productId=this.product!.id// Product ID
+          if (this.user!=null) {
+            cartPush.user_id=this.user!.user_id
+          }
+          cartPush.productSpecId=this.specList[this.checkIndex].id// Specification ID
+          cartPush.productName=this.product!.name// Product Name
+          cartPush.productSpecName=this.specList[this.checkIndex].name
+          cartPush.productImgAddress=this.product!.url// Image URL
+          cartPush.buyAmount=this.addNumber// Quantity
+          cartPush.isNeedPay=true// Selected or not, default true
+          cartPush.activityType="1"// Activity type, none for now
+          cartPush.productPrice=this.product!.price// Price
+          cartPush.productOriginalPrice=this.product!.original_price// Original price
+          cartPush.couponPrice=0
+        }
+
+        let num = await databaseZone.upsert(cartPush);
+        hilog.info(0x0000, 'testTag', `Succeeded in upserting data, result: ${num}`);
+        if (num>0) {
+          showToast("Product added successfully")
+        }
+        let eventData: emitter.EventData = {
+          data: {}
+        };
+
+        let innerEvent: emitter.InnerEvent = {
+          eventId: 1011,
+          priority: emitter.EventPriority.HIGH
+        };
+
+        emitter.emit(innerEvent, eventData);
+        this.controller.close()
+      } catch (err) {
+        hilog.info(0x0000, 'testTag', `Failed to upsert data, error: ${err}`);
+      }
+    })
+  }
+  .width('100%')
+  .justifyContent(FlexAlign.Center)
+
+Next, implement a prompt when no items are selected and prevent navigation to the order confirmation page:
+
+javascript
+isAllTrue(list: CartProductList[]): boolean {
+  for (const item of list) {
+    if (item['isNeedPay'] === true) return true;
+  }
+  return false;
+}
+
+If at least one item is selected, continue with the subsequent logic. On the order confirmation page, filter the passed data based on isNeedPay to only include selected items. Unselected items remain in the cart:
+
+javascript
+onPageShow(): void {
+  let params = router.getParams() as DataModel
+  if (params!=null&&params.json!=undefined){
+    let list:CartProductList[]=JSON.parse(params.json)
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].isNeedPay) {
+        this.productList.push(list[i])
+      }
+    }
+  }
+
+  let params1 = router.getParams() as AddressModel
+  if (params1!=null&&params1.address!=undefined){
+    this.addressInfo=JSON.parse(params1.address)
+  }
+}
+
+This completes the first round of optimization for the shopping cart logic.
+
+Continuing to identify logical gaps, it was found that when selecting or deselecting items, the userId was not included in the data updates. This caused the data to lose the userId, resulting in these items disappearing from the cart when queried later, as queries are based on the user's userId. The corresponding logic is added here:
+
+javascript
+Image(item.isNeedPay?$r('app.media.cart_check'):$r('app.media.cart_no_check'))
+  .height(20)
+  .width(20)
+  .objectFit(ImageFit.Contain)
+  .onClick(async ()=>{
+    let cartPush = new cart_product_list();
+    let data:CartProductList=item
+    cartPush.id=data.id;
+    cartPush.user_id=this.user!.user_id
+    cartPush.productId=data.productId// Product ID
+    cartPush.productSpecId=data.productSpecId// Specification ID
+    cartPush.productName=data.productName// Product Name
+    cartPush.productSpecName=data.productSpecName
+    cartPush.productImgAddress=data.productImgAddress
+    cartPush.buyAmount=data.buyAmount// Quantity
+    cartPush.activityType=data.activityType// Activity type, none for now
+    cartPush.productPrice=data.productPrice// Price
+    cartPush.productOriginalPrice=data.productOriginalPrice// Original price
+    cartPush.couponPrice=data.couponPrice
+    if (item.isNeedPay) {
+      item.isNeedPay=false
+      this.productList[index] = new CartProductList(item.id,item.user_id, item.productId, item.productSpecId, item.productName, item.productSpecName,
+        item.buyAmount, item.isNeedPay,item.activityType,item.productImgAddress,
+        item.productOriginalPrice, item.productPrice, item.couponPrice)
+      cartPush.isNeedPay=false
+    } else {
+      item.isNeedPay=true
+      this.productList[index] = new CartProductList(item.id,item.user_id, item.productId, item.productSpecId, item.productName, item.productSpecName,
+        item.buyAmount, item.isNeedPay,item.activityType,item.productImgAddress,
+        item.productOriginalPrice, item.productPrice, item.couponPrice)
+      cartPush.isNeedPay=true
+    }
+
+    let num = await databaseZone.upsert(cartPush);
+    hilog.info(0x0000, 'TAG', `Data updated: ${num}`);
+    this.getCountPrice()
+  })
+
+Further down, it was found that when adding or reducing the quantity of products, the userId was still not handled. The corresponding logic is added here:
+
+javascript
+Row(){
+  Text("-")
+    .textAlign(TextAlign.Center)
+    .border({width:0.5,color:Color.Gray})
+    .fontSize(14)
+    .height(20)
+    .padding({left:7,right:7})
+    .fontColor(Color.Black)
+    .onClick(async ()=>{
+      if (item.buyAmount==1) {
+        showToast("Minimum quantity reached")
+      } else {
+        item.buyAmount--
+
+        let cartPush = new cart_product_list();
+        let data:CartProductList=item
+        cartPush.id=data.id;
+        cartPush.user_id=this.user!.user_id
+        cartPush.productId=data.productId// Product ID
+        cartPush.productSpecId=data.productSpecId// Specification ID
+        cartPush.productName=data.productName// Product Name
+        cartPush.productSpecName=data.productSpecName
+        cartPush.productImgAddress=data.productImgAddress
+        cartPush.buyAmount=item.buyAmount// Quantity
+        cartPush.activityType=data.activityType// Activity type, none for now
+        cartPush.productPrice=data.productPrice// Price
+        cartPush.productOriginalPrice=data.productOriginalPrice// Original price
+        cartPush.couponPrice=data.couponPrice
+        cartPush.isNeedPay=data.isNeedPay
+
+        let num = await databaseZone.upsert(cartPush);
+        hilog.info(0x0000, 'TAG', `Data updated: ${num}`);
+
+        this.productList[index] = new CartProductList(item.id, item.user_id,item.productId, item.productSpecId, item.productName, item.productSpecName,
+          item.buyAmount, item.isNeedPay,item.activityType,item.productImgAddress,
+          item.productOriginalPrice, item.productPrice, item.couponPrice)
+        this.getCountPrice()
+      }
+    })
+    .borderRadius({topLeft:5,bottomLeft:5})
+
+  Text(item.buyAmount+"")
+    .textAlign(TextAlign.Center)
+    .fontColor(Color.Black)
+    .fontSize(14)
+    .height(20)
+    .padding({left:10,right:10})
+    .border({width:0.5,color:Color.Gray})
+
+  Text("+")
+    .textAlign(TextAlign.Center)
+    .fontColor(Color.Black)
+    .fontSize(14)
+    .height(20)
+    .padding({left:7,right:7})
+    .onClick(async ()=>{
+      item.buyAmount++
+      let cartPush = new cart_product_list();
+
+      let data:CartProductList=item
+      cartPush.id=data.id;
+      cartPush.user_id=this.user!.user_id
+      cartPush.productId=data.productId// Product ID
+      cartPush.productSpecId=data.productSpecId// Specification ID
+      cartPush.productName=data.productName// Product Name
+      cartPush.productSpecName=data.productSpecName
+      cartPush.productImgAddress=data.productImgAddress
+      cartPush.buyAmount=item.buyAmount// Quantity
+      cartPush.activityType=data.activityType// Activity type, none for now
+      cartPush.productPrice=data.productPrice// Price
+      cartPush.productOriginalPrice=data.productOriginalPrice// Original price
+      cartPush.couponPrice=data.couponPrice
+      cartPush.isNeedPay=data.isNeedPay
+
+      let num = await databaseZone.upsert(cartPush);
+      hilog.info(0x0000, 'TAG', `Data updated: ${num}`);
+      this.productList[index] = new CartProductList(item.id, item.user_id,item.productId, item.productSpecId, item.productName, item.productSpecName,
+        item.buyAmount, item.isNeedPay,item.activityType,item.productImgAddress,
+        item.productOriginalPrice, item.productPrice, item.couponPrice)
+      this.getCountPrice()
+    })
+    .border({width:0.5,color:Color.Gray})
+    .borderRadius({topRight:5,bottomRight:5})
+}
+.justifyContent(FlexAlign.SpaceBetween)
+
+
+
+
+
+At this point, the shopping cart has become relatively robust.
