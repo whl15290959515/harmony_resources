@@ -1,0 +1,389 @@
+Technical Stack
+Appgallery connect
+
+Development Preparation
+In the previous section, we implemented the order list page, but our order list is divided into many order statuses. The data retrieved on the order list page is all data, and we still need to perform some operations on the order status. If they are all together, it is very unfriendly to users, so we need to modify it to display different lists under different statuses. At the same time, we implement the cancellation of orders and the viewing of the list of cancelled orders.
+
+Function Analysis
+To display multiple order pages on one page, we need to first change the layout of the main page to tabs. We put the corresponding components into TabContent, then click the corresponding cancel appointment button in the pending pickup list to modify the current order type, and query the list according to userid and ordertype when querying.
+
+Code Implementation
+First, modify the home page to tabs:
+
+
+import { CommonTopBar } from '../../widget/CommonTopBar';
+import { CancelOrderList } from './CancelOrderList';
+import { IncompleteOrderList } from './IncompleteOrderList';
+@Entry
+@Component
+struct OrderListPage {
+  @State currentIndex: number = 0
+
+  @State fontColor: string = '#182431';
+  @State selectedFontColor: string = '#007DFF';
+  @State selectedIndex: number = 0;
+  private controller: TabsController = new TabsController();
+
+  @Builder tabBuilder(index: number, name: string) {
+    Column() {
+      Text(name)
+        .fontColor(this.selectedIndex === index ? this.selectedFontColor : this.fontColor)
+        .fontSize(16)
+        .fontWeight(this.selectedIndex === index ? 500 : 400)
+        .lineHeight(22)
+        .margin({ top: 17, bottom: 7 })
+      Divider()
+        .strokeWidth(2)
+        .width(40)
+        .color('#007DFF')
+        .opacity(this.selectedIndex === index ? 1 : 0)
+    }.width('100%')
+  }
+
+  build() {
+    Column() {
+      CommonTopBar({ title: "My Orders", alpha: 0, titleAlignment: TextAlign.Center ,backButton:true})
+      Tabs({ barPosition: BarPosition.Start, index: this.currentIndex, controller: this.controller }) {
+        TabContent() {
+          Column(){
+            IncompleteOrderList({currentIndex:this.currentIndex})
+          }.width('100%').height('100%')
+        }.tabBar(this.tabBuilder(0, 'Pending Pickup'))
+
+        TabContent() {
+          Column(){
+            CancelOrderList({currentIndex:this.currentIndex})
+          }.width('100%').height('100%')
+        }.tabBar(this.tabBuilder(1, 'Cancelled'))
+
+        TabContent() {
+          Column(){
+          }.width('100%').height('100%')
+        }.tabBar(this.tabBuilder(2, 'In Transit'))
+
+        TabContent() {
+          Column(){
+          }.width('100%').height('100%')
+        }.tabBar(this.tabBuilder(3, 'Completed'))
+      }
+      .vertical(false)
+      .barMode(BarMode.Fixed)
+      .barWidth('100%')
+      .barHeight(56)
+      .animationDuration(0)
+      .onChange((index: number) => {
+        this.currentIndex = index;
+        this.selectedIndex = index;
+      })
+      .onAnimationStart((index: number, targetIndex: number, event: TabsAnimationEvent) => {
+        if (index === targetIndex) {
+          return;
+        }
+        this.selectedIndex = targetIndex;
+      })
+      .width('100%')
+      .height('100%')
+      .backgroundColor('#F1F3F5')
+    }.width('100%')
+  }
+}
+
+Create a pending pickup component to query the corresponding pending pickup list based on userid and ordertype:
+
+
+import { User } from '../../entity/User';
+import { StorageUtils } from '../../utils/StorageUtils';
+import { cloudDatabase } from '@kit.CloudFoundationKit';
+import { recycle_info } from '../../clouddb/recycle_info';
+import { RecycleInfo } from '../../entity/RecycleInfo';
+import { hilog } from '@kit.PerformanceAnalysisKit';
+import showToast from '../../utils/ToastUtils';
+
+let databaseZone = cloudDatabase.zone('default');
+
+@Component
+export struct IncompleteOrderList {
+  @State user: User|null=null;
+  @State orderList:RecycleInfo[]=[]
+  @State flag:boolean=false
+
+  @State currentIndexCheck: number = 0
+  @Prop @Watch("onRefresh") currentIndex:number=0
+
+  async onRefresh(): Promise<void> {
+    if (this.currentIndexCheck==this.currentIndex) {
+      let databaseZone = cloudDatabase.zone('default');
+      let condition = new cloudDatabase.DatabaseQuery(recycle_info);
+      condition.equalTo("user_id",this.user?.user_id).and().equalTo("order_type",0)
+      let listData = await databaseZone.query(condition);
+      let json = JSON.stringify(listData)
+      let data1:RecycleInfo[]= JSON.parse(json)
+      this.orderList=data1
+      this.flag=true
+    }
+  }
+  async aboutToAppear(): Promise<void> {
+    const value = await StorageUtils.getAll('user');
+    if (value != "") {
+      this.user = JSON.parse(value)
+    }
+    let condition = new cloudDatabase.DatabaseQuery(recycle_info);
+    condition.equalTo("user_id",this.user?.user_id)
+    let listData = await databaseZone.query(condition);
+    let json = JSON.stringify(listData)
+    let data:RecycleInfo[]= JSON.parse(json)
+    this.orderList=data
+    hilog.info(0x0000, 'testTag', `Succeeded in querying data, result: ${data}`);
+
+    this.flag=true
+  }
+
+
+  build() {
+    Column() {
+      if (this.flag)
+      {
+        List({space:10}){
+          ForEach(this.orderList,(item:RecycleInfo,index:number)=>{
+            ListItem(){
+              Column({space:10}){
+                Row(){
+                  Text("Order Number："+item.express_code)
+                    .fontColor(Color.Black)
+                    .fontSize(14)
+
+                  Text("Pending Pickup")
+                    .fontColor(Color.Black)
+                    .fontSize(14)
+                }
+                .justifyContent(FlexAlign.SpaceBetween)
+                .width('100%')
+
+                Row({space:10}){
+                  Image($r('app.media.background'))
+                    .height(40)
+                    .width(40)
+                    .borderRadius(5)
+
+                  Column({space:10}){
+                    Text("Recycling Category  Clothing, Shoes & Bags")
+                      .fontColor(Color.Black)
+                      .fontSize(14)
+
+
+                    Text("Scheduled Time  "+item.create_time)
+                      .fontColor(Color.Black)
+                      .fontSize(14)
+
+                    Text("Contact Information  "+item.phone)
+                      .fontColor(Color.Black)
+                      .fontSize(14)
+
+                    Text("Pickup Address  "+item.address)
+                      .fontColor(Color.Black)
+                      .fontSize(14)
+
+                  }.alignItems(HorizontalAlign.Start)
+                }
+                .margin({top:10})
+                .alignItems(VerticalAlign.Top)
+                .width('100%')
+                .justifyContent(FlexAlign.Start)
+
+                Row({space:10}){
+                  Text()
+                  Blank()
+                  Text("Cancel Appointment")
+                    .fontColor(Color.Black)
+                    .fontSize(12)
+                    .padding(5)
+                    .borderRadius(10)
+                    .border({width:1,color:Color.Grey})
+                   
+                }
+                .width('100%')
+
+
+              }
+              .padding(10)
+              .backgroundColor(Color.White)
+              .borderRadius(10)
+              .width('100%')
+              .justifyContent(FlexAlign.SpaceBetween)
+            }
+          })
+        }
+        .padding(10)
+      }
+
+
+
+    }
+    .backgroundColor("#f7f7f7")
+    .height('100%')
+    .width('100%')
+  }
+}
+
+At the cancel appointment button, modify the status of the corresponding order:
+
+
+.onClick(async ()=>{
+                      let data=new recycle_info()
+                      data.id=item.id
+                      data.user_id=item.user_id
+                      data.nike_name=item.nike_name
+                      data.phone=item.phone
+                      data.address=item.address
+                      data.day=item.day
+                      data.start_time=item.start_time
+                      data.end_time=item.end_time
+                      data.msg=item.msg
+                      data.weight_id=item.weight_id
+                      data.create_time=item.create_time
+                      data.express_code=item.express_code
+                      data.express_people=item.express_people
+                      data.express_company=item.express_company
+                      data.order_type=1
+                      data.logistics_id=item.logistics_id
+                      let num = await databaseZone.upsert(data);
+                      hilog.info(0x0000, 'testTag', `Succeeded in upserting data, result: ${num}`);
+                      if (num>0) {
+                        this.onRefresh()
+                        showToast("Cancellation successful")
+                      }
+                    })
+
+Query and display the cancelled order list:
+
+First, query the corresponding cancelled order list:
+
+
+  let databaseZone = cloudDatabase.zone('default');
+      let condition = new cloudDatabase.DatabaseQuery(recycle_info);
+      condition.equalTo("user_id",this.user?.user_id).and().equalTo("order_type",1)
+      let listData = await databaseZone.query(condition);
+      let json = JSON.stringify(listData)
+      let data1:RecycleInfo[]= JSON.parse(json)
+      this.orderList=data1
+      this.flag=true
+
+Corresponding list display (complete code):
+
+
+import { User } from '../../entity/User';
+import { StorageUtils } from '../../utils/StorageUtils';
+import { cloudDatabase } from '@kit.CloudFoundationKit';
+import { recycle_info } from '../../clouddb/recycle_info';
+import { RecycleInfo } from '../../entity/RecycleInfo';
+import { hilog } from '@kit.PerformanceAnalysisKit';
+let databaseZone = cloudDatabase.zone('default');
+
+@Component
+export struct CancelOrderList {
+  @State user: User|null=null;
+  @State orderList:RecycleInfo[]=[]
+  @State flag:boolean=false
+
+  @State currentIndexCheck: number = 1
+  @Prop @Watch("onRefresh") currentIndex:number=0
+
+  async onRefresh(): Promise<void> {
+    if (this.currentIndexCheck==this.currentIndex) {
+      let databaseZone = cloudDatabase.zone('default');
+      let condition = new cloudDatabase.DatabaseQuery(recycle_info);
+      condition.equalTo("user_id",this.user?.user_id).and().equalTo("order_type",1)
+      let listData = await databaseZone.query(condition);
+      let json = JSON.stringify(listData)
+      let data1:RecycleInfo[]= JSON.parse(json)
+      this.orderList=data1
+      this.flag=true
+    }
+  }
+  async aboutToAppear(): Promise<void> {
+    const value = await StorageUtils.getAll('user');
+    if (value != "") {
+      this.user = JSON.parse(value)
+    }
+    let condition = new cloudDatabase.DatabaseQuery(recycle_info);
+    condition.equalTo("user_id",this.user?.user_id)
+    let listData = await databaseZone.query(condition);
+    let json = JSON.stringify(listData)
+    let data:RecycleInfo[]= JSON.parse(json)
+    this.orderList=data
+    hilog.info(0x0000, 'testTag', `Succeeded in querying data, result: ${data}`);
+
+    this.flag=true
+  }
+
+
+  build() {
+    Column() {
+      if (this.flag)
+      {
+        List({space:10}){
+          ForEach(this.orderList,(item:RecycleInfo,index:number)=>{
+            ListItem(){
+              Column({space:10}){
+                Row(){
+                  Text("Order Number："+item.express_code)
+                    .fontColor(Color.Black)
+                    .fontSize(14)
+
+                  Text("Cancelled")
+                    .fontColor(Color.Black)
+                    .fontSize(14)
+                }
+                .justifyContent(FlexAlign.SpaceBetween)
+                .width('100%')
+
+                Row({space:10}){
+                  Image($r('app.media.background'))
+                    .height(40)
+                    .width(40)
+                    .borderRadius(5)
+
+                  Column({space:10}){
+                    Text("Recycling Category  Clothing, Shoes & Bags")
+                      .fontColor(Color.Black)
+                      .fontSize(14)
+
+
+                    Text("Scheduled Time  "+item.create_time)
+                      .fontColor(Color.Black)
+                      .fontSize(14)
+
+                    Text("Contact Information  "+item.phone)
+                      .fontColor(Color.Black)
+                      .fontSize(14)
+
+                    Text("Pickup Address  "+item.address)
+                      .fontColor(Color.Black)
+                      .fontSize(14)
+
+                  }.alignItems(HorizontalAlign.Start)
+                }
+                .margin({top:10})
+                .alignItems(VerticalAlign.Top)
+                .width('100%')
+                .justifyContent(FlexAlign.Start)
+              }
+              .padding(10)
+              .backgroundColor(Color.White)
+              .borderRadius(10)
+              .width('100%')
+              .justifyContent(FlexAlign.SpaceBetween)
+            }
+          })
+        }
+        .padding(10)
+      }
+    }
+    .backgroundColor("#f7f7f7")
+    .height('100%')
+    .width('100%')
+  }
+}
+
+
+Here we have implemented the cancellation of pending pickup orders and the display of cancelled orders.
