@@ -1,0 +1,114 @@
+Technical Stack
+Appgallery connect
+
+Development Preparation
+In the previous section, we implemented the creation of orders and successfully submitted data to the cloud database. In this section, we will implement the display of the order list we submitted.
+
+Function Analysis
+To implement the display of the order list, we first need to query the order list under the corresponding user. After querying the corresponding order list, display the corresponding data in the component. The list display of data is implemented using List, and on the order display item, we display the corresponding order operation buttons according to the order status.
+
+Code Implementation
+First, we obtain the saved user information:
+
+
+@State user: User|null=null;
+const value = await StorageUtils.getAll('user');
+if (value != "") {
+  this.user = JSON.parse(value)
+}
+
+Query all lists under the current user based on user information:
+
+
+let condition = new cloudDatabase.DatabaseQuery(recycle_info);
+condition.equalTo("user_id", this.user?.user_id);
+let listData = await databaseZone.query(condition);
+let json = JSON.stringify(listData);
+let data: RecycleInfo[] = JSON.parse(json);
+this.orderList = data;
+
+Use List to display the list:
+
+
+List({space:10}){
+  ForEach(this.orderList,(item:RecycleInfo,index:number)=>{
+    ListItem(){
+      Column({space:10}){
+        Row(){
+          Text("Order Number："+item.express_code)
+            .fontColor(Color.Black)
+            .fontSize(14)
+
+          Text("Pending Pickup")
+            .fontColor(Color.Black)
+            .fontSize(14)
+        }
+        .justifyContent(FlexAlign.SpaceBetween)
+        .width('100%')
+
+        Row({space:10}){
+          Image($r('app.media.background'))
+            .height(40)
+            .width(40)
+            .borderRadius(5)
+
+          Column({space:10}){
+            Text("Recycling Category  Clothing, Shoes & Bags")
+              .fontColor(Color.Black)
+              .fontSize(14)
+
+
+            Text("Scheduled Time  "+item.create_time)
+              .fontColor(Color.Black)
+              .fontSize(14)
+
+            Text("Contact Information  "+item.phone)
+              .fontColor(Color.Black)
+              .fontSize(14)
+
+            Text("Pickup Address  "+item.address)
+              .fontColor(Color.Black)
+              .fontSize(14)
+
+          }.alignItems(HorizontalAlign.Start)
+        }
+        .margin({top:10})
+        .alignItems(VerticalAlign.Top)
+        .width('100%')
+        .justifyContent(FlexAlign.Start)
+
+        Row({space:10}){
+          Text()
+          Blank()
+          Text("Cancel Appointment")
+            .fontColor(Color.Black)
+            .fontSize(12)
+            .padding(5)
+            .borderRadius(10)
+            .border({width:1,color:Color.Grey})
+
+
+          Text("Confirm Order")
+            .fontColor(Color.Black)
+            .fontSize(12)
+            .padding(5)
+            .borderRadius(10)
+            .backgroundColor(Color.Orange)
+        }
+        .width('100%')
+
+
+      }
+      .padding(10)
+      .backgroundColor(Color.White)
+      .borderRadius(10)
+      .width('100%')
+      .justifyContent(FlexAlign.SpaceBetween)
+    }
+  })
+}
+.padding(10)
+
+
+
+Now we execute the code to view the effect.
