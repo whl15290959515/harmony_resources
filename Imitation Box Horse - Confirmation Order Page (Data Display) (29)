@@ -1,0 +1,271 @@
+Technology Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we implemented address addition. With addresses in place, our next focus is on order generation. Clicking "Checkout" on the shopping cart page will navigate to an order confirmation page, which requires address selection, display of added items, price calculation, discount calculation, and product quantity display.
+
+Functional Analysis
+To implement the order confirmation page:
+
+Pass the added product list from the shopping cart page.
+Calculate the total price and quantity based on the buyAmount and price in the list.
+Compute discounts using the strike-through price.
+Submit the order after confirming the details.
+
+Code Implementation
+Passing Data from Shopping Cart to Order Confirmation Page
+typescript
+.onClick(() => {
+  router.pushUrl({ 
+    url: 'pages/view/OrderSubmitPage', 
+    params: { data: JSON.stringify(this.productList) }
+  });
+})
+
+Receiving Data on Order Confirmation Page
+typescript
+@State productList: CartProductList[] = [];
+
+aboutToAppear(): void {
+  const params = (this.getUIContext().getRouter().getParams() as Record<string, string>)['data'];
+  if (params) {
+    this.productList = JSON.parse(params);
+  }
+}
+
+UI Layout for Shipping Address, Product List, and Price Calculation
+typescript
+Column() {
+  CommonTopBar({ title: "Confirm Order", alpha: 0, titleAlignment: TextAlign.Center, backButton: true });
+  Divider()
+    .width('100%')
+    .height(5)
+    .backgroundColor("#f7f7f7");
+  
+  Column() {
+    Row({ space: 20 }) {
+      Image($r('app.media.order_location'))
+        .height(20)
+        .width(20);
+      Text("Please select a shipping address")
+        .fontColor(Color.Black)
+        .fontSize(16);
+      Blank();
+      Image($r('app.media.right'))
+        .height(20)
+        .width(20);
+    }
+    .padding(10)
+    .width('100%')
+    .justifyContent(FlexAlign.SpaceBetween)
+    .height(40)
+    .alignItems(VerticalAlign.Center);
+    Divider()
+      .width('100%')
+      .height(5)
+      .backgroundColor("#f7f7f7");
+    
+    List({ scroller: this.scroller }) {
+      ForEach(this.productList, (item: CartProductList, index: number) => {
+        ListItem() {
+          Column() {
+            Row() {
+              Row({ space: 10 }) {
+                Image(item.productImgAddress)
+                  .height(70)
+                  .width(70)
+                  .margin({ left: 10 })
+                  .borderRadius(10);
+                Column({ space: 5 }) {
+                  Text(item.productName)
+                    .fontColor(Color.Black)
+                    .fontSize(14);
+                  Text(item.productSpecName)
+                    .fontColor(Color.Grey)
+                    .fontSize(14);
+                  Row() {
+                    Text() {
+                      Span("¥ ")
+                        .fontSize(14)
+                        .fontColor(Color.Red);
+                      Span(item.productPrice + "")
+                        .fontSize(16)
+                        .fontColor(Color.Red);
+                    }
+                    Text("¥" + item.productOriginalPrice + "")
+                      .fontColor('#999')
+                      .decoration({
+                        type: TextDecorationType.LineThrough,
+                        color: Color.Gray
+                      })
+                      .fontSize(14)
+                      .margin({ left: 10 });
+                  }
+                  .alignItems(VerticalAlign.Bottom);
+                  Text("Selected: " + item.buyAmount)
+                    .fontColor(Color.Gray)
+                    .fontSize(12);
+                }
+                .alignItems(HorizontalAlign.Start);
+              }
+              .justifyContent(FlexAlign.Start)
+              .alignItems(VerticalAlign.Top);
+              Blank();
+              Text("¥ " + item.productPrice * item.buyAmount)
+                .fontColor(Color.Black)
+                .fontSize(14);
+            }
+            .padding(10)
+            .width('100%')
+            .alignItems(VerticalAlign.Top)
+            .justifyContent(FlexAlign.SpaceBetween);
+            Divider()
+              .width('100%')
+              .height(1)
+              .backgroundColor("#f7f7f7");
+          }
+        }
+      });
+    }
+    .height('auto');
+    
+    Row() {
+      Text("Order Notes")
+        .fontSize(14)
+        .fontColor(Color.Black);
+      Blank();
+      Text("Optional, please specify notes")
+        .fontColor(Color.Gray)
+        .fontSize(12);
+      Image($r('app.media.right'))
+        .height(15)
+        .width(15);
+    }
+    .width('100%')
+    .padding(10)
+    .justifyContent(FlexAlign.SpaceBetween);
+    
+    Row() {
+      Text();
+      Blank();
+      Text("Total " + this.amount() + " items")
+        .fontSize(12)
+        .fontColor(Color.Gray);
+      Text("Subtotal:")
+        .fontColor(Color.Gray)
+        .fontSize(12)
+        .margin({ left: 15 });
+      Text() {
+        Span("¥ ")
+          .fontSize(12)
+          .fontColor(Color.Red);
+        Span(this.price() + "")
+          .fontSize(12)
+          .fontColor(Color.Red);
+      }
+    }
+    .padding(10)
+    .width('100%')
+    .justifyContent(FlexAlign.SpaceBetween);
+    
+    Divider()
+      .width('100%')
+      .height(10)
+      .backgroundColor("#f7f7f7");
+    
+    Row() {
+      Text("Total Product Price")
+        .fontSize(14)
+        .fontColor(Color.Black);
+      Text() {
+        Span("¥ ")
+          .fontSize(12)
+          .fontColor(Color.Black);
+        Span(this.price() + "")
+          .fontSize(12)
+          .fontColor(Color.Black);
+      }
+    }
+    .padding(10)
+    .width('100%')
+    .justifyContent(FlexAlign.SpaceBetween);
+    
+    Row() {
+      Text("Platform Discount")
+        .fontSize(14)
+        .fontColor(Color.Black);
+      Text() {
+        Span("¥ ")
+          .fontSize(12)
+          .fontColor(Color.Black);
+        Span(this.originalPrice() - this.price() + "")
+          .fontSize(12)
+          .fontColor(Color.Black);
+      }
+    }
+    .padding(10)
+    .width('100%')
+    .justifyContent(FlexAlign.SpaceBetween);
+  }
+  .layoutWeight(1);
+  
+  Row({ space: 10 }) {
+    Text("Total " + this.amount() + " items")
+      .fontSize(14)
+      .fontColor(Color.Black);
+    Blank();
+    Text() {
+      Span("Payable: ");
+      Span("¥ ")
+        .fontSize(10)
+        .fontColor(Color.Red);
+      Span(this.price() + "")
+        .fontSize(16)
+        .fontColor(Color.Red);
+    }
+    Text("Submit Order")
+      .fontColor(Color.White)
+      .padding(10)
+      .borderRadius(10)
+      .backgroundColor("#d81e06")
+      .fontSize(14);
+  }
+  .padding(20)
+  .justifyContent(FlexAlign.SpaceBetween)
+  .width('100%');
+}
+.backgroundColor(Color.White)
+.height('100%')
+.width('100%');
+
+Calculating Total Quantity, Price, and Discount
+typescript
+amount(): number {
+  let total = 0;
+  for (let i = 0; i < this.productList.length; i++) {
+    total += this.productList[i].buyAmount;
+  }
+  return total;
+}
+
+price(): number {
+  let total = 0;
+  for (let i = 0; i < this.productList.length; i++) {
+    total += this.productList[i].buyAmount * this.productList[i].productPrice;
+  }
+  return total;
+}
+
+originalPrice(): number {
+  let total = 0;
+  for (let i = 0; i < this.productList.length; i++) {
+    total += this.productList[i].buyAmount * this.productList[i].productOriginalPrice;
+  }
+  return total;
+}
+
+
+
+
+
+This completes the static functionality of the order confirmation page.
