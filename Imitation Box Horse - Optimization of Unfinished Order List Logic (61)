@@ -1,0 +1,102 @@
+Technical Stack
+Appgallery connect
+
+Preface
+In the previous section, when we implemented the joint submission of orders and coupons, we checked the generated order information on the order list page and found that there were issues with both the information display and price calculations for the orders. Therefore, we need to urgently fix these corresponding issues.
+Source of the Problem
+
+
+async aboutToAppear(): Promise<void> {
+    const value = await StorageUtils.getAll('user');
+    if (value != "") {
+      this.user = JSON.parse(value)
+    }
+    if (this.currentIndexCheck==this.currentIndex) {
+      let databaseZone = cloudDatabase.zone('default');
+      let condition = new cloudDatabase.DatabaseQuery(order_list);
+      condition.equalTo("user_id",this.user?.user_id).and().equalTo("order_status",0)
+      let listData = await databaseZone.query(condition);
+      let json = JSON.stringify(listData)
+      let data1:OrderList[]= JSON.parse(json)
+      this.orderInfo=data1
+
+      // The problematic code
+      let condition1 = new cloudDatabase.DatabaseQuery(order_product_list);
+      condition1.equalTo("order_product_id",data1[0].order_product_id)
+      let listData1 = await databaseZone.query(condition1);
+      let json1 = JSON.stringify(listData1)
+      this.productList=JSON.parse(json1)
+
+      this.flag=true
+    }
+  }
+
+As we can see, when entering the "To Be Shipped" page, we request all orders from the orderlist, which is correct. However, when we continue down and query the data with conditions:
+
+
+condition1.equalTo("order_product_id",data1[0].order_product_id)
+
+Here we directly take the first piece of data and use it in the list logic. This causes all items in the list to display the products and prices from the first order. The displayed images and prices are all the same.
+Solution
+After identifying the problem, we decided to use a Map to store the data corresponding to different order_product_ids. This way, when looping through the orders, we can use the order_product_id as the key to retrieve the corresponding data. Now let's make the modifications:
+
+
+// First, define a global Map to receive the content
+@State mapList: Map<string, OrderProductList[]> | null = null;
+
+// Replace the original logic that only requested the first item with code that stores data in the Map
+async aboutToAppear(): Promise<void> {
+    const value = await StorageUtils.getAll('user');
+    if (value != "") {
+      this.user = JSON.parse(value)
+    }
+    if (this.currentIndexCheck == this.currentIndex) {
+      let databaseZone = cloudDatabase.zone('default');
+      let condition = new cloudDatabase.DatabaseQuery(order_list);
+      condition.equalTo("user_id", this.user?.user_id).and().equalTo("order_status", 0);
+      let listData = await databaseZone.query(condition);
+      let json = JSON.stringify(listData);
+      let data1: OrderList[] = JSON.parse(json);
+      this.orderInfo = data1;
+
+      // New code to populate the Map with product data for each order
+      const myMap = new Map<string, OrderProductList[]>();
+      for (let i = 0; i < data1.length; i++) {
+        let condition1 = new cloudDatabase.DatabaseQuery(order_product_list);
+        condition1.equalTo("order_product_id", data1[i].order_product_id);
+        let listData1 = await databaseZone.query(condition1);
+        let json1 = JSON.stringify(listData1);
+        myMap.set(data1[i].order_product_id, JSON.parse(json1));
+      }
+      this.mapList = myMap;
+
+      this.flag = true;
+    }
+  }
+
+// Calculate the price for each order by retrieving the correct product data from the Map
+price(item: OrderList): number {
+  const money = this.mapList!.get(String(item.order_product_id));
+  if (!money || money.length === 0) return 0;
+  return money[0].buyAmount * money[0].price;
+}
+
+// Update the List component to use the correct product data from the Map
+List({ space: 10 }) {
+  ForEach(this.mapList?.get(item.order_product_id) || [], (pos: OrderProductList) => {
+    ListItem() {
+      Column() {
+        Image(pos.img)
+          .height(60)
+          .width(60)
+          .borderRadius(5)
+      }
+    }
+  })
+}
+.padding({ left: 10 })
+.width('100%')
+.listDirection(Axis.Horizontal)
+.height(80)
+
+With these changes, the logic on the order list page has been optimized and now functions correctly.
