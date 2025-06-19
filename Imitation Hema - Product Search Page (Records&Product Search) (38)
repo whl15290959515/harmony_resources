@@ -1,0 +1,255 @@
+Technical Stack
+Appgallery connect
+
+Development Preparation
+In the previous section, we created a new product search page and implemented the top search bar and the recommended search list below. In this section, we will add a product search history list and the function to search for corresponding products after entering content. We also need to ensure the uniqueness of the search content, local data persistence of search history, and the deletion of the search history list.
+
+Function Analysis
+The product search history list can be implemented by saving the input search content to user preferences. Product search is achieved by matching the input name with the product names in the cloud database. To ensure the uniqueness of search history, when we search for the same content, only one record is generated, which can be filtered when adding data. The deletion of search history is implemented through a pop-up window, calling the encapsulated deletion method to delete the corresponding stored record by key.
+
+Code Implementation
+First, implement storing the search content, which is added when clicking the search button:
+
+plaintext
+ Text("Search")
+          .border({width:1,radius:10,color:Color.White})
+          .fontSize(14)
+          .fontColor("#ffffff")
+          .padding({left:13,right:13,top:5,bottom:5})
+          .borderRadius(10)
+          .onClick(async ()=>{
+            if (this.text.trim()==''&&this.text.length==0) {
+              this.isSearch=false
+              showToast("Search content cannot be empty")
+            }else {
+                this.isSearch=true
+                let home_product=new cloudDatabase.DatabaseQuery(home_product_list);
+              home_product.equalTo("name",this.text)
+                let list = await databaseZone.query(home_product);
+                let json = JSON.stringify(list)
+                let data:HomeProductList[]= JSON.parse(json)
+                this.goodsList=data
+                StorageUtils.set("history_list",this.addToStringList(this.searchHistoryList,this.text))
+                const history = await StorageUtils.getAll("history_list")
+                if (history!=null&&history!=undefined) {
+                  this.searchHistoryList=JSON.parse(history)
+                }
+            }
+          })
+
+Display the stored search history list:
+
+c
+运行
+// Data initialization
+ async aboutToAppear(): Promise<void> {
+    const history = await StorageUtils.getAll("history_list")
+    if (history!=''&&history!=undefined) {
+      this.searchHistoryList=JSON.parse(history)
+    }
+    let condition = new cloudDatabase.DatabaseQuery(search_hot_txt);
+    let listData = await databaseZone.query(condition);
+    let json = JSON.stringify(listData)
+    let data1:SearchHotTxt[]= JSON.parse(json)
+    this.searchTxt=data1
+    this.flag=true
+  }
+
+  List(){
+            ForEach(this.searchHistoryList,(item:string)=>{
+              ListItem(){
+                Column({space:5}){
+                  Text(item)
+                    .fontColor("#ffa09a9a")
+                    .padding({left:15})
+                    .margin({top:10})
+                  Divider().width('100%').height(0.8)
+                    .color("#e6e6e6")
+                }
+                .alignItems(HorizontalAlign.Start)
+              }
+            })
+          }
+
+Run the code to see the effect. The data list is displayed, but now we have duplicate content in the list.
+
+plaintext
+// Process when adding
+  addToStringList(list: string[], newItem: string): string {
+  if (!list.includes(newItem)) {
+    list.push(newItem);
+  }
+  return JSON.stringify(list);
+}
+
+Query corresponding products based on the search content:
+
+plaintext
+let home_product=new cloudDatabase.DatabaseQuery(home_product_list);
+              home_product.equalTo("name",this.text)
+                let list = await databaseZone.query(home_product);
+                let json = JSON.stringify(list)
+                let data:HomeProductList[]= JSON.parse(json)
+                this.goodsList=data
+
+Add the product display list component:
+
+plaintext
+ WaterFlow() {
+          ForEach(this.goodsList, (item:HomeProductList, index) => {
+            FlowItem() {
+              Column() {
+                Image(item.url)
+                  .width('100%')
+                  .aspectRatio(1)
+                  .objectFit(ImageFit.Cover)
+                  .borderRadius({topLeft:10,topRight:10})
+
+                Column() {
+                  Text(item.name)
+                    .fontSize(16)
+                    .fontColor('#333')
+                    .margin({ bottom: 4 })
+
+                  Text(item.text_message)
+                    .fontSize(12)
+                    .fontColor('#666')
+                    .margin({ bottom: 8 })
+
+
+                  Text("Up to ¥" + item.promotion_spread_price + " off")
+                    .fontSize(12)
+                    .fontColor('#ffffff')
+                    .visibility(item.promotion_spread_price>0?Visibility.Visible:Visibility.None)
+                    .margin({ bottom: 8 })
+                    .padding({left:5,right:5,top:2,bottom:2})
+                    .linearGradient({
+                      angle:90,
+                      colors: [[0xff0000, 0], [0xff6666, 0.2], [0xff6666, 1]]
+                    })
+
+                  Row(){
+                    Text("Limited")
+                      .width(40)
+                      .fontSize(12)
+                      .borderRadius(20)
+                      .backgroundColor("#FB424C")
+                      .padding(3)
+                      .textAlign(TextAlign.Center)
+                    Text("Max " + item.max_loop_amount + " per person")
+                      .margin({left:5})
+                      .fontSize(12)
+                      .fontColor("#FB424C")
+                  }
+                  .borderRadius(20)
+                  .padding({top:2,bottom:2,right:10})
+                  .backgroundColor("#FEE3E3")
+                  .visibility(item.amount>0?Visibility.Visible:Visibility.None)
+
+                  Row() {
+                    Text(){
+                      Span("¥")
+                        .fontColor(Color.Red)
+                        .fontSize(14)
+
+                      Span(String(item.price))
+                        .fontSize(16)
+                        .fontColor(Color.Red)
+                    }
+                    Text(String(item.original_price))
+                      .fontSize(12)
+                      .fontColor('#999')
+                      .decoration({
+                        type: TextDecorationType.LineThrough,
+                        color: Color.Gray
+                      })
+                      .margin({left:10})
+
+
+                    Blank()
+                    Column() {
+                      Image($r('app.media.cart'))
+                        .width(20)
+                        .height(20)
+                    }
+                    .justifyContent(FlexAlign.Center)
+                    .width(36)
+                    .height(36)
+                    .backgroundColor("#ff2bd2fa")
+                    .borderRadius(18)
+                  }
+                  .margin({top:10})
+                  .width('100%')
+                  .justifyContent(FlexAlign.SpaceBetween)
+
+
+
+                }
+                .alignItems(HorizontalAlign.Start)
+                .padding(12)
+              }
+              .backgroundColor(Color.White)
+              .borderRadius(12)
+              .onClick(() => {
+                let product: ProductDetailModel = {
+                  id: item.id
+                };
+                router.pushUrl({
+                  url: 'pages/component/ProductDetailsPage',
+                  params: product
+                }, (err) => {
+                  if (err) {
+                    console.error(`Invoke pushUrl failed, code is ${err.code}, message is ${err.message}`);
+                    return;
+                  }
+                  console.info('Invoke pushUrl succeeded.');
+                });
+              })
+            }
+            .margin({ bottom: 12 })
+          })
+        }
+        .padding(10)
+        .columnsTemplate('1fr 1fr')
+        .columnsGap(12)
+        .onAreaChange((oldVal, newVal) => {
+          this.columns = newVal.width > 600 ? 2 : 1
+        })
+        .layoutWeight(1)
+        .visibility(this.isSearch?Visibility.Visible:Visibility.None)
+
+Next, implement the deletion of the list:
+
+plaintext
+ Text("Clear All")
+              .fontSize(14)
+              .fontColor("#ff989b9b")
+              .onClick(()=>{
+                promptAction.showDialog({
+                  title: 'Prompt',
+                  message: 'Are you sure you want to clear the search history?',
+                  buttons: [
+                    {
+                      text: 'Confirm',
+                      color: '#ffffff'
+                    },
+                    {
+                      text: 'Close',
+                      color: '#ffffff'
+                    }
+                  ],
+                })
+                  .then(data => {
+                  this.searchHistoryList.length=0
+                    StorageUtils.remove("history_list")
+                    console.info('showDialog success, click button: ' + data.index);
+                  })
+                  .catch((err: Error) => {
+                    console.info('showDialog error: ' + err);
+                  })
+
+              })
+
+
+
+Here we have implemented the content of the product search page.
