@@ -1,0 +1,177 @@
+Technical Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we implemented order details viewing in the order list. However, to check recycling-related revenue, users had to enter the product details page, which becomes cumbersome when there are many orders. Now, we need to implement a recycling record page to display estimated earnings for ongoing orders and earnings statistics for completed orders.
+
+Function Analysis
+Use a "Recycling Records" button on the recycling order creation page as an entry to the records page.
+Query in-transit orders to calculate estimated earnings and display them on the page.
+Query completed orders to calculate earned earnings and display statistics, along with a list of completed orders and their creation times.
+
+Code Implementation
+First, retrieve user information and query in-transit (order_type=2) and completed (order_type=3) order lists:
+
+
+@State user: User|null=null;
+@State orderList_type_3: RecycleInfo[] = [];
+@State orderList_type_2: RecycleInfo[] = [];
+
+const value = await StorageUtils.getAll('user');
+if (value != "") {
+  this.user = JSON.parse(value);
+}
+
+let condition = new cloudDatabase.DatabaseQuery(recycle_info);
+condition.equalTo("user_id", this.user?.user_id).and().equalTo("order_type", "3");
+let listData = await databaseZone.query(condition);
+let json = JSON.stringify(listData);
+let data: RecycleInfo[] = JSON.parse(json);
+this.orderList_type_3 = data;
+
+let condition1 = new cloudDatabase.DatabaseQuery(recycle_info);
+condition1.equalTo("user_id", this.user?.user_id).and().equalTo("order_type", "2");
+let listData1 = await databaseZone.query(condition1);
+let json1 = JSON.stringify(listData1);
+let data1: RecycleInfo[] = JSON.parse(json1);
+this.orderList_type_2 = data1;
+
+Define parameters to receive data, and query earnings and points based on the weight_id in the order list:
+
+
+@State execute_money: number = 0;
+@State success_money: number = 0;
+@State execute_integral: number = 0;
+@State success_integral: number = 0;
+
+async executeOrder() {
+  for (let i = 0; i < this.orderList_type_2.length; i++) {
+    let condition = new cloudDatabase.DatabaseQuery(weight_info);
+    condition.equalTo("weight_id", this.orderList_type_2[i].weight_id);
+    let listData = await databaseZone.query(condition);
+    let json = JSON.stringify(listData);
+    let weightList: WeightInfo[] = JSON.parse(json);
+    for (let j = 0; j < weightList.length; j++) {
+      this.execute_money += weightList[j].money;
+      this.execute_integral += weightList[j].integral;
+    }
+  }
+}
+
+async successOrder() {
+  for (let i = 0; i < this.orderList_type_3.length; i++) {
+    let condition = new cloudDatabase.DatabaseQuery(weight_info);
+    condition.equalTo("weight_id", this.orderList_type_3[i].weight_id);
+    let listData = await databaseZone.query(condition);
+    let json = JSON.stringify(listData);
+    let weightList: WeightInfo[] = JSON.parse(json);
+    for (let j = 0; j < weightList.length; j++) {
+      this.success_money += weightList[j].money;
+      this.success_integral += weightList[j].integral;
+    }
+  }
+}
+
+async aboutToAppear(): Promise<void> {
+  this.executeOrder();
+  this.successOrder();
+}
+
+Fill the queried content into the page:
+
+
+build() {
+  if (this.flag) {
+    Column() {
+      CommonTopBar({ title: "Recycling Records", alpha: 0, titleAlignment: TextAlign.Center, backButton: true });
+      Row() {
+        Column({ space: 10 }) {
+          Text("Pending Settlement Earnings")
+            .fontSize(14)
+            .fontColor(Color.Black)
+            .fontWeight(FontWeight.Bold);
+          Text("¥" + String(this.execute_money))
+            .fontSize(14)
+            .fontColor(Color.Red);
+          Text(String(this.execute_integral))
+            .fontSize(14)
+            .fontColor(Color.Black);
+        }
+        .alignItems(HorizontalAlign.Center)
+        .justifyContent(FlexAlign.Center)
+        .height(100)
+        .width('45%')
+        .borderRadius(10)
+        .border({ width: 1, color: Color.Grey });
+
+        Column({ space: 10 }) {
+          Text("Completed Settlement Earnings Statistics")
+            .fontSize(14)
+            .fontColor(Color.Black)
+            .fontWeight(FontWeight.Bold);
+          Text("¥" + String(this.success_money))
+            .fontSize(14)
+            .fontColor(Color.Black);
+          Text(String(this.success_integral))
+            .fontSize(14)
+            .fontColor(Color.Black);
+        }
+        .alignItems(HorizontalAlign.Center)
+        .justifyContent(FlexAlign.Center)
+        .height(100)
+        .width('45%')
+        .borderRadius(10)
+        .border({ width: 1, color: Color.Grey });
+      }
+      .padding(10)
+      .width('100%')
+      .justifyContent(FlexAlign.SpaceBetween);
+
+      Text("Completed Orders").width('100%')
+        .textAlign(TextAlign.Start)
+        .fontSize(18)
+        .fontColor(Color.Black)
+        .padding(10);
+      List({ space: 10 }) {
+        ForEach(this.orderList_type_3, (item: RecycleInfo, index: number) => {
+          ListItem() {
+            Column() {
+              Column({ space: 10 }) {
+                Row() {
+                  Text(item.nike_name)
+                    .fontColor(Color.Black)
+                    .fontSize(16)
+                    .fontWeight(FontWeight.Bold);
+                  Text(item?.phone)
+                    .fontColor(Color.Black)
+                    .fontSize(16)
+                    .fontWeight(FontWeight.Bold)
+                    .margin({ left: 20 });
+                }
+                Text(item.create_time)
+                  .fontSize(14)
+                  .fontColor(Color.Gray);
+                Row() {
+                  Text()
+                  Blank()
+                }
+                .width('100%');
+              }
+              .padding(10)
+              .alignItems(HorizontalAlign.Start)
+              .width('100%');
+            }
+          }
+        })
+      }
+    }
+    .backgroundColor(Color.White)
+    .height('100%')
+    .width('100%');
+  }
+}
+
+
+
+
+Execute the code to view the effect.
