@@ -1,0 +1,192 @@
+Technology Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we implemented the business logic for the login page, successfully achieved data querying, and added a utility class for user preferences. Now, the main interface navigates to the login page, and upon successful login, the login page closes, returning to the personal center page. What is the current form of our business logic? After successful login, we need to display user information, which should persist across sessions. Additionally, we have added a static pop-up for avatar selection to enrich the personal information page.
+
+Functional Analysis
+Key considerations include:
+
+Custom components do not refresh when switching tabs, requiring a refresh mechanism for tab changes.
+Loading user information from the login session when switching to the personal center page.
+Triggering the custom avatar selection pop-up when clicking the avatar.
+
+Code Implementation
+1. Saving and Passing User Information on Login
+typescript
+StorageUtils.set("user", JSON.stringify(data1[0]));
+router.back({
+  url: 'pages/Index',
+  params: {
+    info: user
+  }
+});
+2. Solving Component Refresh Issue on Tab Switch
+Define a tab index in the home page and pass it to components via @Prop with a watcher:
+typescript
+@State currentIndexCheck: number = 3;
+@Prop @Watch("onRefresh") currentIndex: number = 0;
+
+async onRefresh(): Promise<void> {
+  // Refresh logic
+}
+
+3. Receiving User Data in the Home Page
+typescript
+onPageShow(): void {
+  const params = this.getUIContext().getRouter().getParams() as User;
+  if (params) {
+    const info: User = params as User;
+    if (info) {
+      this.controller.changeIndex(3);
+      this.user = info;
+    }
+  }
+}
+4. Data Passing with @Provide and @Consume
+Home page definition:
+typescript
+@Provide user: User | null = null;
+
+Personal center page definition:
+typescript
+@Consume user: User | null;
+
+5. Refreshing User Data in Personal Center
+typescript
+async onRefresh(): Promise<void> {
+  if (this.currentIndexCheck === this.currentIndex) {
+    const value = await StorageUtils.getAll('user');
+    this.user = JSON.parse(value);
+  }
+}
+6. Populating User Data in the UI
+typescript
+if (this.user) {
+  Row() {
+    Image($r('app.media.background'))
+      .height(55)
+      .width(55)
+      .borderRadius(27)
+      .objectFit(ImageFit.Contain)
+      .interpolation(ImageInterpolation.High)
+      .onClick(() => this.dialogController.open());
+    Column() {
+      Text(this.user.user_name)
+        .fontSize(24)
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis });
+      Text(this.user.is_vip ? 'svip' : 'Activate VIP')
+        .fontSize(14);
+    }
+    .alignItems(HorizontalAlign.Start)
+    .margin({ left: 10 });
+    Blank().layoutWeight(1);
+    Image($r('app.media.ic_arrow_bold'))
+      .height(16)
+      .width(16)
+      .margin(20)
+      .objectFit(ImageFit.Contain);
+  }
+  .justifyContent(FlexAlign.Start)
+  .margin({ top: 30 });
+}
+7. Avatar Selection Pop-up Implementation
+typescript
+// Avatar selection dialog component
+import { SplitLayoutModel } from "../entity/SplitLayoutModel";
+import showToast from "../utils/ToastUtils";
+
+@Preview
+@CustomDialog
+export struct HeadCheckDialog {
+  controller: CustomDialogController;
+  @Link str: string;
+  @State checkPos: number = -1;
+  @State headList: ESObject[] = [
+    { 'img': 'Online Avatar 1' },
+    { 'img': 'Online Avatar 2' },
+    { 'img': 'Online Avatar 3' },
+    { 'img': 'Online Avatar 4' },
+    { 'img': 'Online Avatar 5' },
+    { 'img': 'Online Avatar 6' }
+  ];
+
+  onItemSelected: (item: string) => void = () => {};
+
+  build() {
+    Column({ space: 20 }) {
+      Text("Avatar Selection")
+        .fontSize($r('app.float.size_20'))
+        .fontWeight(FontWeight.Bold)
+        .fontColor(Color.Black)
+        .margin({ top: 20 });
+
+      Grid() {
+        ForEach(this.headList, (item: ESObject, index: number) => {
+          GridItem() {
+            Column() {
+              Image(item.img)
+                .width(80)
+                .height(80)
+                .onClick(() => {
+                  this.str = item.img;
+                  this.checkPos = index;
+                })
+                .border({ 
+                  width: this.checkPos === index ? 2 : 0, 
+                  color: this.checkPos === index ? 0xff0000 : null 
+                })
+                .borderRadius(20);
+            }
+          }
+        });
+      }
+      .columnsGap(10)
+      .rowsGap(10)
+      .height(300)
+      .columnsTemplate('1fr 1fr 1fr 1fr')
+      .width('90%')
+      .padding(10);
+
+      Text("Confirm")
+        .width('50%')
+        .textAlign(TextAlign.Center)
+        .height(40)
+        .fontSize(18)
+        .fontColor(Color.White)
+        .backgroundColor(0xff0000)
+        .borderRadius(30)
+        .margin({ top: 30 })
+        .onClick(() => {
+          if (this.str) {
+            this.onItemSelected(this.str);
+            showToast(this.str);
+          } else {
+            showToast("Please select an avatar first");
+          }
+        });
+    }
+    .borderRadius({ topLeft: 20, topRight: 20 })
+    .justifyContent(FlexAlign.Start)
+    .backgroundColor(Color.White)
+    .height(500)
+    .width('100%');
+  }
+}
+8. Dialog Controller in Personal Center
+typescript
+private dialogController: CustomDialogController = new CustomDialogController({
+  builder: HeadCheckDialog({
+    str: this.str,
+    onItemSelected: (str) => {
+      showToast(str);
+      this.str = str;
+    }
+  }),
+  alignment: DialogAlignment.Bottom,
+  customStyle: true
+});
+
+
+Executing the code now displays user information and enables static avatar selection, completing the integration of user data and interface interactions.
