@@ -1,0 +1,116 @@
+Technology Stack
+AppGallery Connect
+
+Development Preparation
+In the previous section, we implemented the left-side secondary category list for the classification page and achieved synchronization between the top list/popup and the left list. In this section, we'll add synchronization for the right-side product list based on the existing  mechanism.
+
+Functional Analysis
+1. List Display
+
+When selecting a top-level category, the left list shows secondary categories, and the right list displays products under the selected secondary category.
+Ensure seamless  between all three components. Each selection should trigger corresponding refreshes while maintaining data consistency through proper ID management.
+
+Code Implementation
+1. Right List Display
+typescript
+// Track selected right category ID with watcher
+@State @Watch("onIdChange") rightItemId: number = 0;
+
+// Update ID on left list item click
+.onClick(() => {
+  this.checkPosition = index;
+  this.rightItemId = item.right_id;
+});
+
+// Query products when ID changes
+async onIdChange() {
+  this.productListItem.length = 0;
+  const condition = new cloudDatabase.DatabaseQuery(category_product_list)
+    .equalTo("right_id", this.rightItemId);
+  const listData = await databaseZone.query(condition);
+  this.productListItem = JSON.parse(JSON.stringify(listData));
+  hilog.info(0x0000, 'testTag', `Data query success: ${this.productListItem}`);
+}
+2. Right List UI
+typescript
+@Builder
+buildList() {
+  List() {
+    ForEach(this.productListItem, (item: CategoryProductList) => {
+      ListItem() {
+        this.ProductItem(item);
+      }
+    });
+  }
+  .height('100%')
+  .listDirection(Axis.Vertical)
+  .divider({ strokeWidth: 0.5, color: "#e6e6e6", startMargin: 20, endMargin: 20 })
+  .edgeEffect(EdgeEffect.Spring)
+  .onScrollIndex((firstIndex, lastIndex) => {
+    console.info(`First visible: ${firstIndex}, Last visible: ${lastIndex}`);
+  });
+}
+3. Product Item Style
+typescript
+@Builder
+ProductItem(item: CategoryProductList) {
+  Flex({ direction: FlexDirection.Row }) {
+    Image(item.url)
+      .margin({ top: 5, left: 8, right: 8 })
+      .objectFit(ImageFit.Contain)
+      .height(80)
+      .width(80)
+      .borderRadius(10)
+      .objectFit(ImageFit.Cover);
+    
+    Flex({ direction: FlexDirection.Column, justifyContent: FlexAlign.SpaceBetween }) {
+      Text(item.name)
+        .fontSize(16)
+        .fontWeight(FontWeight.Bold)
+        .margin({ top: 8 })
+        .fontColor("#333333");
+      
+      Text(item.text_message)
+        .fontColor("#999999")
+        .fontSize(12)
+        .margin({ top: 10 });
+      
+      Row() {
+        Text() {
+          Span('¥')
+            .fontSize(12)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(Color.Red);
+          Span(item.price.toString())
+            .fontSize(18)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(Color.Red);
+        }
+        .margin({ top: 25 });
+      }
+    }
+  }
+  .margin({ top: 10 })
+  .onClick(() => {
+    // Product click handler
+  });
+}
+4. Reset Selections on Top Category Change
+typescript
+async onChange() {
+  this.checkPosition = 0; // Reset left selection to first item
+  this.categoryList.length = 0;
+  
+  // Query left list based on top category
+  const condition = new cloudDatabase.DatabaseQuery(category_left_list)
+    .equalTo("child_id", this.topListItemChildId);
+  const listData = await databaseZone.query(condition);
+  this.categoryList = JSON.parse(JSON.stringify(listData));
+  hilog.error(0x0000, 'testTag', `Left list query failed: ${this.categoryList}`);
+  
+  // Trigger right list refresh with first left category
+  this.queryLeftList(this.categoryList[0].child_id);
+}
+
+Implementation Result
+Executing the code now shows synchronized updates between the left and right lists. Selecting a top category resets the left list to its first item and populates the right list with corresponding products, completing the 联动 (linkage) implementation.
