@@ -1,0 +1,135 @@
+Technical Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we implemented the static display of the personal center page. Now that the project has progressed to this stage, it's time to add user-related functionality. Since our data will be user-specific in the later stages and not shared between different users, we need to add a user login entry to the application to implement user binding.
+
+Functional Analysis
+The content of the user login page is relatively straightforward. First, we'll implement the static layout, which includes a logo, account/password input fields, a login button, and request status indicators. Later, we'll add business logic to enrich its functionality.
+
+Code Implementation
+
+typescript
+import promptAction from '@ohos.promptAction';
+
+@Entry
+@Component
+struct LoginPage {
+  @State userId: string = '';
+  
+  aboutToAppear() {}
+  
+  @State message: string = 'Login Page';
+  @State acc: string = '';
+  @State psw: string = '';
+  @State isShowProgress: boolean = true;
+  
+  controller: TextInputController = new TextInputController();
+
+  login(): void {
+    if (this.acc === '' && this.psw === '') {
+      promptAction.showToast({ message: "Please enter your account and password" });
+      return;
+    } else {
+      this.isShowProgress = false;
+    }
+  }
+
+  @Builder
+  imageButton(src: string) {
+    Button({ type: ButtonType.Circle, stateEffect: true }) {
+      Image(src)
+        .height(20)
+        .width(20);
+    }
+    .height(50)
+    .width(50);
+  }
+
+  build() {
+    Row() {
+      Column() {
+        Image($r('app.media.logo'))
+          .width(120)
+          .height(120)
+          .borderRadius(60);
+        
+        Text("Login Interface")
+          .width(80)
+          .fontSize(14)
+          .fontColor("#333333")
+          .margin({ top: 40 })
+          .fontWeight(FontWeight.Medium);
+
+        TextInput({
+          text: "15290959515",
+          placeholder: 'Enter your account'
+        })
+          .backgroundColor("#f6f6f6")
+          .placeholderColor("#ff999595")
+          .fontColor("#333333")
+          .maxLength(11)
+          .type(InputType.Number)
+          .onChange((value: string) => {
+            this.acc = value;
+          })
+          .margin(20);
+
+        TextInput({
+          text: "123456",
+          placeholder: 'Enter your password'
+        })
+          .backgroundColor("#f6f6f6")
+          .placeholderColor("#ff999595")
+          .fontColor("#333333")
+          .type(InputType.Password)
+          .onChange((value: string) => {
+            this.psw = value;
+          })
+          .margin(20);
+
+        Row() {
+          Text('Register')
+            .fontColor(Color.Blue)
+            .fontSize(14)
+            .margin(30);
+
+          Text('Forgot Password')
+            .fontColor(Color.Blue)
+            .fontSize(14)
+            .margin(30);
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.SpaceBetween);
+
+        if (this.isShowProgress) {
+          LoadingProgress()
+            .width(60)
+            .height(60)
+            .backgroundColor(Color.Pink)
+            .margin({ top: $r('app.float.login_progress_margin_top') });
+        }
+
+        Button('Login', { type: ButtonType.Capsule, stateEffect: false })
+          .onClick(() => {
+            this.isShowProgress = true;
+            this.login();
+          })
+          .fontColor(Color.White)
+          .width('80%')
+          .height(40)
+          .margin(40)
+          .backgroundColor(0xff0000);
+
+        Blank().margin(30);
+      }
+      .width('100%');
+    }
+    .height('100%')
+    .backgroundColor('#FFFFFF')
+    .justifyContent(FlexAlign.Center);
+  }
+}
+
+
+After implementation, we can check the execution results. This completes the static layout of the login page.
