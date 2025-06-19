@@ -1,0 +1,160 @@
+Technical Stack
+Appgallery connect
+
+Development Preparation
+In the previous section, we implemented the display function for recycling fund withdrawal records, enriching the content related to recycling funds. In the previous business logic, we added a security lock setting function. Although we successfully set up the security lock and submitted the corresponding table information to the cloud, we haven't used the security lock in the withdrawal process. In this section, we will integrate the security lock with the withdrawal process to enhance the security of our functions.
+
+Functional Analysis
+First, when entering the withdrawal page, we need to check if there is data in the security lock table under the current user ID. If there is data, we obtain the current security lock status. If the security lock is enabled, a pop-up verification will be triggered when the user clicks the withdrawal button. The value drawn by the user in the pop-up will be matched against the security lock value set in the system. If the match is successful, the record addition operation will be executed; if not, the user will be prompted that the security lock verification failed.
+
+Code Implementation
+First, query the corresponding table content on the withdrawal page:
+
+
+let databaseZone = cloudDatabase.zone('default');
+let condition3 = new cloudDatabase.DatabaseQuery(verify_info);
+condition3.equalTo("user_id", this.user?.user_id);
+let listData3 = await databaseZone.query(condition3);
+let json3 = JSON.stringify(listData3);
+let data3: VerifyInfo[] = JSON.parse(json3);
+this.verifyInfo = data3;
+
+Then perform non-null judgment on the data source and check the security lock status:
+
+
+if (this.verifyInfo.length > 0) {
+  if (this.verifyInfo[0].open_lock) {
+    // Security lock is enabled, proceed with withdrawal logic
+  }
+}
+
+After confirming the above checks, we need to create a verification pop-up:
+
+
+import showToast from '../utils/ToastUtils';
+
+@Preview
+@CustomDialog
+export struct WithdrawalLockDialog {
+  @State passwords: Number[] = [];
+  public callback: (passwords: string) => void = (): void => {};
+  private patternLockController: PatternLockController = new PatternLockController();
+  controller: CustomDialogController;
+
+  build() {
+    Column({ space: 10 }) {
+      Text("Please verify your security password!")
+        .fontColor(Color.White)
+        .fontWeight(FontWeight.Bold)
+        .fontSize(16)
+        .width('100%')
+        .textAlign(TextAlign.Center)
+        .padding(10)
+        .backgroundColor('#FF6363');
+      
+      PatternLock(this.patternLockController)
+        .sideLength(300)
+        .circleRadius(9)
+        .pathStrokeWidth(5)
+        .borderRadius(10)
+        .activeColor('#707070')
+        .selectedColor('#707070')
+        .pathColor('#707070')
+        .backgroundColor('#F5F5F5')
+        .autoReset(true)
+        .onDotConnect((index: number) => {
+          console.log("onDotConnect index: " + index);
+        })
+        .onPatternComplete((input: Array<number>) => {
+          if (input.length < 5) {
+            showToast("Pattern must connect at least 5 dots");
+            return;
+          }
+          
+          const str: string = JSON.stringify(input);
+          this.callback(str);
+          this.controller.close();
+        });
+    }
+    .width('100%')
+    .height(400)
+    .backgroundColor(Color.White);
+  }
+}
+
+Reference the pop-up on the withdrawal page and pass the input value via callback:
+
+
+private dialogController: CustomDialogController = new CustomDialogController({
+  builder: WithdrawalLockDialog({
+    callback: async (str: string) => {
+      // Process security lock verification result
+    }
+  }),
+  alignment: DialogAlignment.Bottom,
+  customStyle: false
+});
+
+Verify the input value against the stored value in the table and submit corresponding records upon successful verification:
+
+
+if (str === this.verifyInfo[0].lock_str) {
+  showToast("Verification successful");
+
+  let record = new withdrawal_record();
+  record.id = Math.floor(Math.random() * 1000000);
+  record.user_id = this.user!.user_id;
+  record.bank_name = this.bankList[0].bank_name;
+  record.bank_num = this.bankList[0].bank_card;
+  record.creat_time = this.year + "-" + this.month + "-" + this.day + " " + this.time;
+  record.type_str = '0';
+  record.money = this.moneyNum;
+  let status = await databaseZone.upsert(record);
+
+  let money = new money_info();
+  money.id = Math.floor(Math.random() * 1000000);
+  money.user_id = this.user!.user_id;
+  money.money = String(this.moneyNum);
+  money.all_money = '';
+  money.money_type = '1';
+  money.address = 'Bank card withdrawal';
+  money.year = this.year;
+  money.month = this.month;
+  money.day = this.day;
+  money.time = this.time;
+  money.create_time = this.year + "-" + this.month + "-" + this.day + " " + this.time;
+  let nums = await databaseZone.upsert(money);
+
+  let userData = new user_info();
+  userData.id = this.userInfo!.id;
+  userData.user_id = this.userInfo!.user_id;
+  userData.sex = this.userInfo!.sex;
+  userData.bind_phone = this.userInfo!.bind_phone;
+  userData.create_time = this.userInfo!.create_time;
+  userData.nickname = this.userInfo!.nickname;
+  userData.head_img = this.userInfo!.head_img;
+  
+  if (this.userInfo?.money != null) {
+    userData.money = this.userInfo!.money - this.moneyNum;
+  } else {
+    userData.money = 0;
+  }
+  
+  if (this.userInfo?.points != null) {
+    userData.points = this.userInfo!.points;
+  } else {
+    userData.points = 0;
+  }
+  
+  let s = await databaseZone.upsert(userData);
+
+  if (s > 0) {
+    router.pushUrl({ url: 'pages/recycle/money/SuccessPage' });
+  }
+
+  this.dialogController.close();
+} else {
+  showToast("Security lock verification failed!");
+}
+
+Execute the code to check the withdrawal effect with the security lock enable
