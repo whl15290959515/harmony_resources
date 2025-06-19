@@ -1,0 +1,155 @@
+Technical Stack
+Appgallery Connect
+
+Development Preparation
+In the previous article, we implemented the cloud-integrated navigation bar (Golden Section) module, successfully retrieved data from the cloud, and linked it with the ScrollBar for real-time position indication. As our home page grows with more content modules, manually adjusting or removing modules during each build becomes inefficient. To address this, we introduce a configuration table to dynamically control module visibility, allowing real-time adjustments without recompiling.
+
+Code Implementation
+1. Create Configuration Table (home_activity_setting)
+json
+{
+  "objectTypeName": "home_activity_setting",
+  "fields": [
+    {"fieldName": "id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "poster_id", "fieldType": "Integer"},
+    {"fieldName": "banner_id", "fieldType": "Integer"},
+    {"fieldName": "good_left_id", "fieldType": "Integer"},
+    {"fieldName": "good_right_id", "fieldType": "Integer"},
+    {"fieldName": "goods_list_id", "fieldType": "Integer"},
+    {"fieldName": "new_people_status", "fieldType": "Boolean"},
+    {"fieldName": "split_layout_status", "fieldType": "Boolean"},
+    {"fieldName": "banner_status", "fieldType": "Boolean"},
+    {"fieldName": "goods_list_status", "fieldType": "Boolean"}
+  ],
+  "indexes": [
+    {"indexName": "field1IndexId", "indexList": [{"fieldName":"id","sortType":"ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+2. Sample Data
+json
+{
+  "cloudDBZoneName": "default",
+  "objectTypeName": "home_activity_setting",
+  "objects": [
+    {
+      "id": 1,
+      "poster_id": 1,
+      "banner_id": 1,
+      "good_left_id": 1,
+      "good_right_id": 1,
+      "goods_list_id": 1,
+      "new_people_status": true,
+      "split_layout_status": true,
+      "banner_status": true,
+      "goods_list_status": true
+    }
+  ]
+}
+3. Entity Class (HomeActivitySetting.ets)
+typescript
+export class HomeActivitySetting {
+    id: number;
+    poster_id: number;
+    banner_id: number;
+    good_left_id: number;
+    good_right_id: number;
+    goods_list_id: number;
+    new_people_status: boolean;
+    split_layout_status: boolean;
+    banner_status: boolean;
+    goods_list_status: boolean;
+
+    constructor() {
+    }
+
+    // Getter methods for type mapping, class name, keys, etc.
+    getFieldTypeMap(): Map<string, string> {
+        let fieldTypeMap = new Map<string, string>();
+        // ... (mapping for all fields)
+        return fieldTypeMap;
+    }
+
+    // Getter and setter methods for each field
+    static parseFrom(inputObject: any): HomeActivitySetting {
+        let result = new HomeActivitySetting();
+        if (!inputObject) {
+            return result;
+        }
+        // ... (assignment for all fields)
+        return result;
+    }
+}
+4. Database Class (home_activity_setting.db.ets)
+typescript
+import { cloudDatabase } from '@kit.CloudFoundationKit';
+
+class home_activity_setting extends cloudDatabase.DatabaseObject {
+  public id: number;
+  public poster_id: number;
+  public banner_id: number;
+  public good_left_id: number;
+  public good_right_id: number;
+  public goods_list_id: number;
+  public new_people_status: boolean;
+  public split_layout_status: boolean;
+  public banner_status: boolean;
+  public goods_list_status: boolean;
+
+  public naturalbase_ClassName(): string {
+    return 'home_activity_setting';
+  }
+}
+
+export { home_activity_setting };
+5. Synchronize the table and data to the cloud database through the development tool.
+6. Data Query and Dynamic Visibility Control
+typescript
+// Query logic in the home page component
+@State homeActivity: HomeActivitySetting[] = [];
+
+async fetchHomeActivitySettings() {
+  try {
+    let databaseZone = cloudDatabase.zone('default');
+    let condition3 = new cloudDatabase.DatabaseQuery(home_activity_setting);
+    
+    let listData3 = await databaseZone.query(condition3);
+    let json3 = JSON.stringify(listData3);
+    let data3: HomeActivitySetting[] = JSON.parse(json3);
+    this.homeActivity = data3;
+  } catch (err) {
+    hilog.error(0x0000, 'testTag', `Failed to query data, code: ${err.code}, message: ${err.message}`);
+  }
+}
+
+// Usage in build() method to conditionally render components
+build() {
+  Column() {
+    // Banner module (conditionally rendered)
+    if (this.homeActivity[0]?.banner_status) {
+      BannerComponent()
+    }
+    
+    // Navigation bar (Golden Section) module
+    if (this.homeActivity[0]?.split_layout_status) {
+      SplitLayout({ listData: this.splitList })
+    }
+    
+    // Other modules...
+  }
+}
+
+
+
+Implementation Result
+After querying the configuration data:
+
+The navigation bar (Golden Section) is displayed when split_layout_status is true.
+Modify split_layout_status to false in the cloud database, and the navigation bar will dynamically disappear from the UI.
+
+This completes the implementation of dynamic module visibility control for the home page, allowing real-time adjustments without app recompilation.
