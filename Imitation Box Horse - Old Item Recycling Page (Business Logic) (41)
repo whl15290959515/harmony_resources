@@ -1,0 +1,308 @@
+Technical Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we implemented the static display page for the second-hand item recycling module. Now we will start adding the corresponding module logic, including address selection, remarks, pickup time, and weight selection modules.
+
+Function Analysis
+Address Selection
+To implement address selection, we first need to navigate to the address list selection page and pass a marker to indicate that we are coming from the recycling home page. After selecting an address, the address information should be passed back to the corresponding page.
+Remarks
+Implement a pop-up window for adding remarks, obtain the content, and display it in the remarks section.
+Pickup Time
+Display the current order time in the module.
+Weight Selection
+Allow switching between weight options, modify the corresponding background color when switching, and retrieve the selected data.
+
+Code Implementation
+Address Selection (click event to navigate to the address page)
+
+.onClick(()=>{
+  let status: AddressRecycleStatusModel = {
+    status: true
+  }
+  router.pushUrl({url:'pages/view/AddressListPage',params:status})
+})
+In the address selection page, retrieve the status marker
+
+export class AddressRecycleStatusModel {
+  status: boolean = false;
+}
+
+
+
+@State recycleStatus: boolean = false;
+
+let recycleStatus = router.getParams() as AddressRecycleStatusModel;
+if (recycleStatus && recycleStatus != undefined) {
+  this.recycleStatus = recycleStatus.status;
+}
+Pass and receive address data
+typescript
+// Pass address data back when selecting an address
+if (this.recycleStatus) {
+  router.back({url:'pages/recycle/home/RecycleHomePage',params:paramsInfo});
+}
+
+// Receive address data on the home page
+onPageShow(): void {
+  let params1 = router.getParams() as AddressModel;
+  if (params1 != null && params1.address != undefined) {
+    this.addressInfo = JSON.parse(params1.address);
+  }
+}
+
+// UI display with address data
+Row(){
+  Image($r('app.media.weizhi'))
+    .width($r('app.float.size_17'))
+    .height($r('app.float.size_17'))
+    .objectFit(ImageFit.Contain)
+
+  Flex({direction:FlexDirection.Column,alignItems:ItemAlign.Start}){
+    Text(this.addressInfo!=null?this.addressInfo.nikeName+" "+this.addressInfo.phone:"Address：")
+      .fontSize(16)
+      .fontWeight(FontWeight.Bold)
+      .fontColor($r('app.color.color_ff333'))
+    Text(this.addressInfo!=null?this.addressInfo.administrativeArea+" "+this.addressInfo.locality+""+this.addressInfo.subLocality+" "+this.addressInfo.placeName:"Click to select address：")
+      .fontSize(14)
+      .fontColor($r('app.color.color_999'))
+      .margin({top:$r('app.float.size_4')})
+  }
+  .margin({left:10})
+
+  Blank()
+  Image($r('app.media.back_right_recycle'))
+    .width($r('app.float.size_16'))
+    .height($r('app.float.size_16'))
+    .objectFit(ImageFit.Contain)
+}
+.alignItems(VerticalAlign.Top)
+.padding({top:$r('app.float.size_16'),left:$r('app.float.size_10'),right:$r('app.float.size_10'),bottom:$r('app.float.size_10')})
+.width('100%')
+.height($r('app.float.size_80'))
+.backgroundColor(Color.White)
+.borderRadius($r('app.float.size_10'))
+.onClick(()=>{
+  let status:AddressRecycleStatusModel={
+    status:true
+  }
+  router.pushUrl({url:'pages/view/AddressListPage',params:status})
+})
+Remarks Implementation (create and reference a pop-up dialog)
+
+
+
+// Import necessary modules
+import showToast from "../utils/ToastUtils";
+import { cloudDatabase } from "@kit.CloudFoundationKit";
+import { user_info } from "../clouddb/user_info";
+import { UserInfo } from "../entity/UserInfo";
+import { hilog } from "@kit.PerformanceAnalysisKit";
+
+// Remarks dialog component
+@Preview
+@CustomDialog
+export struct RecycleRemarkDialog {
+  controller: CustomDialogController;
+  @Link str: string ;
+  build() {
+    Column({space:20}) {
+
+      Text("Remarks")
+        .fontSize($r('app.float.size_20'))
+        .fontWeight(FontWeight.Bold)
+        .fontColor(Color.Black)
+        .margin({top:20})
+
+      TextArea({text:this.str})
+        .backgroundColor("#f6f6f6")
+        .placeholderColor("#ff999595")
+        .fontColor("#333333")
+        .height(150)
+        .maxLength(50)
+        .onChange((value: String) => {
+          if (value.length>50) {
+            showToast("Maximum 50 characters~")
+            return
+          }else {
+            this.str = value.toString()
+          }
+        })
+        .margin(20)
+      Row(){
+        Text("Cancel")
+          .width('30%')
+          .textAlign(TextAlign.Center)
+          .height(40)
+          .fontSize(18)
+          .fontColor(Color.White)
+          .backgroundColor(0xff0000)
+          .borderRadius(30)
+          .margin({top:30})
+          .onClick(()=>{
+            this.str=''
+              this.controller.close()
+          })
+
+        Text("Confirm")
+          .width('30%')
+          .textAlign(TextAlign.Center)
+          .height(40)
+          .fontSize(18)
+          .fontColor(Color.White)
+          .backgroundColor(0xff0000)
+          .borderRadius(30)
+          .margin({top:30})
+          .onClick(async ()=>{
+            if (this.str!='') {
+             this.controller.close()
+            }else {
+              this.str=''
+              this.controller.close()
+            }
+          })
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.SpaceAround)
+    }
+    .borderRadius({topLeft:20,topRight:20})
+    .justifyContent(FlexAlign.Start)
+    .backgroundColor(Color.White)
+    .height(400)
+    .width('100%')
+  }
+}
+
+// Reference the dialog in the main page
+recycleController: CustomDialogController| null = new CustomDialogController({
+  builder: RecycleRemarkDialog({
+    str:this.remark
+  }),
+  alignment: DialogAlignment.Bottom,
+  customStyle:true
+});
+
+// Remarks UI with click event to open dialog
+Row(){
+  Image($r('app.media.liuyan'))
+    .width($r('app.float.size_17'))
+    .height($r('app.float.size_17'))
+    .objectFit(ImageFit.Contain)
+
+  Flex({direction:FlexDirection.Column,alignItems:ItemAlign.Start}){
+    Text("Remarks：")
+      .fontSize(16)
+      .fontWeight(FontWeight.Bold)
+      .fontColor($r('app.color.color_ff333'))
+    Text(this.remark!=""?this.remark:"Click to add remarks")
+      .fontSize(14)
+      .fontColor($r('app.color.color_999'))
+      .margin({top:$r('app.float.size_4')})
+  }
+  .margin({left:10})
+
+  Blank()
+  Image($r('app.media.back_right_recycle'))
+    .width($r('app.float.size_16'))
+    .height($r('app.float.size_16'))
+    .objectFit(ImageFit.Contain)
+}
+.alignItems(VerticalAlign.Top)
+.padding({top:$r('app.float.size_16'),left:$r('app.float.size_10'),right:$r('app.float.size_10'),bottom:$r('app.float.size_10')})
+.width('100%')
+.height($r('app.float.size_80'))
+.backgroundColor(Color.White)
+.borderRadius($r('app.float.size_10'))
+.onClick(()=>{
+  this.recycleController?.open()
+})
+Pickup Time (get current date directly)
+
+
+
+Row(){
+  Image($r('app.media.shijian'))
+    .width($r('app.float.size_17'))
+    .height($r('app.float.size_17'))
+    .objectFit(ImageFit.Contain)
+
+  Flex({direction:FlexDirection.Column,alignItems:ItemAlign.Start}){
+    Text("Pickup Time：")
+      .fontSize(16)
+      .fontWeight(FontWeight.Bold)
+      .fontColor($r('app.color.color_ff333'))
+    Text(this.formatCurrentDate()+"(Pickup within one hour after ordering)")
+      .fontSize(14)
+      .fontColor($r('app.color.color_999'))
+      .margin({top:$r('app.float.size_4')})
+  }
+  .margin({left:10})
+
+  Blank()
+  Image($r('app.media.back_right_recycle'))
+    .width($r('app.float.size_16'))
+    .height($r('app.float.size_16'))
+    .objectFit(ImageFit.Contain)
+}
+.alignItems(VerticalAlign.Top)
+.padding({top:$r('app.float.size_16'),left:$r('app.float.size_10'),right:$r('app.float.size_10'),bottom:$r('app.float.size_10')})
+.width('100%')
+.height($r('app.float.size_80'))
+.backgroundColor(Color.White)
+.borderRadius($r('app.float.size_10'))
+Estimated Weight Selection
+typescript
+Flex({direction:FlexDirection.Column,alignItems:ItemAlign.Start}){
+  Text("Estimated Weight：")
+    .fontSize(16)
+    .fontWeight(FontWeight.Bold)
+    .fontColor($r('app.color.color_ff333'))
+  Grid(this.scroller) {
+    ForEach(this.weightList, (item: ESObject,index:number) => {
+      GridItem() {
+        Column({space:5}){
+          Text(item.left+"-"+item.right+"kg")
+            .fontSize(16)
+            .width('100%')
+            .textAlign(TextAlign.Center)
+            .onClick(()=>{
+              this.checkPosition = index
+              showToast(item.left)
+            })
+            .fontColor(this.checkPosition == index ? "#000000" : "#ffffff")
+
+
+          Text(item.txt)
+            .fontSize(12)
+            .fontColor(Color.Black)
+            .fontColor(this.checkPosition == index ? "#000000" : "#ffffff")
+        }
+        .padding({top:5,bottom:5})
+        .borderRadius(10)
+        .backgroundColor(this.checkPosition == index ? "#fffa3e3e" : "#fff1a3a3")
+      }
+    })
+  }
+  .columnsTemplate('1fr 1fr 1fr 1fr ')
+  .columnsGap(10)
+  .rowsGap(10)
+  .friction(0.6)
+  .enableScrollInteraction(true)
+  .supportAnimation(false)
+  .multiSelectable(false)
+  .edgeEffect(EdgeEffect.Spring)
+  .scrollBar(BarState.Off)
+  .scrollBarColor(Color.Grey)
+  .scrollBarWidth(4)
+  .width('90%')
+  .backgroundColor("#FFFFFF")
+  .height(100)
+  .margin({top:10})
+}
+.margin({left:10})
+
+
+
+
+So far, we have implemented all the business logic before order creation.
