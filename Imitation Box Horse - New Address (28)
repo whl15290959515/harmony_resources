@@ -1,0 +1,178 @@
+Technology Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we implemented map location selection, current location acquisition, map marker addition, and POI address list retrieval based on the current location. All these lay the foundation for this section, where we will implement the addition of new addresses. This involves adding user information, including recipient details, house number, phone number, coordinates, and detailed address, to our cloud database, and then displaying them in the address query list.
+
+Functional Analysis
+Implementing new address addition is not difficult for our current application completeness, as we already have all the necessary conditions:
+
+Coordinates and location information from map location selection results.
+House number, contact person, and phone number obtained via TextInput.
+User information retrieved from stored user data.
+A randomly generated ID to complete the address entry.
+
+Code Implementation
+Passing Selected POI Data from Map Page
+typescript
+.onClick(() => {
+  router.back({ 
+    url: 'pages/view/PushAddressPage', 
+    params: { data: JSON.stringify(item) }
+  });
+})
+
+New Address Page Layout (Stack Layout for Map and Form Overlay)
+typescript
+Stack({ alignContent: Alignment.Bottom }) {
+  Column() {
+    CommonTopBar({ title: "Add New Address", alpha: 0, titleAlignment: TextAlign.Center, backButton: true });
+    MapComponent({ mapOptions: this.mapOptions, mapCallback: this.callback }).width('100%').height('100%');
+  }
+  .layoutWeight(1);
+  
+  Column({ space: 15 }) {
+    Text("Select Delivery Address >")
+      .textAlign(TextAlign.Center)
+      .width('100%')
+      .height(40)
+      .border({ width: 1, color: Color.Orange })
+      .fontColor(Color.Orange)
+      .margin({ top: 15 })
+      .borderRadius(10)
+      .onClick(() => {
+        router.pushUrl({ url: 'pages/view/MapCheckPage' });
+      });
+    
+    Row() {
+      Text("House Number")
+        .fontColor(Color.Black);
+      TextInput({ text: this.addressStr, placeholder: "Detailed address, e.g., Floor 1, Room 101" })
+        .layoutWeight(1)
+        .height(40)
+        .fontColor(Color.Black)
+        .placeholderColor(Color.Gray)
+        .onChange((str) => this.addressStr = str);
+    }
+    .divider({ strokeWidth: 0.5, color: "#E6E6E6" });
+    
+    Row() {
+      Text("Contact Person")
+        .fontColor(Color.Black);
+      TextInput({ text: this.phoneName, placeholder: "Enter recipient name" })
+        .layoutWeight(1)
+        .height(40)
+        .fontColor(Color.Black)
+        .placeholderColor(Color.Gray)
+        .onChange((str) => this.phoneName = str);
+    }
+    .divider({ strokeWidth: 0.5, color: "#E6E6E6" });
+    
+    Row() {
+      Text("Phone Number")
+        .fontColor(Color.Black);
+      TextInput({ text: this.phoneStr, placeholder: "Enter recipient phone number" })
+        .layoutWeight(1)
+        .height(40)
+        .fontColor(Color.Black)
+        .placeholderColor(Color.Gray)
+        .onChange((str) => this.phoneStr = str);
+    }
+    .divider({ strokeWidth: 0.5, color: "#E6E6E6" });
+    
+    Text("Save Address")
+      .width('100%')
+      .height(40)
+      .backgroundColor(Color.Orange)
+      .fontColor(Color.Black)
+      .textAlign(TextAlign.Center)
+      .borderRadius(10);
+  }
+  .padding(10)
+  .width('90%')
+  .height('90%')
+  .backgroundColor(Color.White);
+  
+  // Location permission prompt
+  if (this.addressSetting && !this.locationKey) {
+    Row() {
+      Text().width(40);
+      Text("Location Disabled")
+        .fontColor(Color.Black);
+      Text("Enable Location")
+        .fontColor(Color.White)
+        .backgroundColor(Color.Pink)
+        .borderRadius(10)
+        .padding(10)
+        .onClick(() => {
+          this.reqPermissionsFromUser(permissions);
+          this.permissionController.open();
+        });
+    }
+    .padding(10)
+    .borderRadius(5)
+    .margin({ bottom: 30 })
+    .backgroundColor('#33000000')
+    .justifyContent(FlexAlign.SpaceAround)
+    .width('90%');
+  }
+}
+.backgroundColor(Color.White)
+.height('100%')
+.width('100%');
+
+Data Variables and Initialization
+typescript
+private addressInfo: site.Site | null = null;
+@State phoneStr: string = '';
+@State phoneName: string = '';
+@State addressStr: string = '';
+
+onPageShow(): void {
+  const value = await StorageUtils.getAll('user');
+  if (value) {
+    this.user = JSON.parse(value);
+  }
+  if (this.mapController) this.mapController.show();
+  
+  const params = (this.getUIContext().getRouter().getParams() as Record<string, string>)['data'];
+  if (params) {
+    this.addressInfo = JSON.parse(params);
+  }
+}
+
+Saving Address to Database
+typescript
+Text("Save Address")
+  .width('100%')
+  .height(40)
+  .backgroundColor(Color.Orange)
+  .fontColor(Color.Black)
+  .textAlign(TextAlign.Center)
+  .borderRadius(10)
+  .onClick(async () => {
+    const cartPush = new address_list();
+    cartPush.id = Math.floor(Math.random() * 1000000);
+    cartPush.user_id = this.user!.user_id;
+    cartPush.administrativeArea = this.addressInfo!.addressComponent.adminLevel1!;
+    cartPush.locality = this.addressInfo!.addressComponent.adminLevel2!;
+    cartPush.subLocality = this.addressInfo!.addressComponent.adminLevel3!;
+    cartPush.placeName = this.addressInfo!.addressComponent.adminLevel4!;
+    cartPush.latitude = String(this.addressInfo!.location!.latitude);
+    cartPush.longitude = String(this.addressInfo!.location!.longitude);
+    cartPush.phone = this.phoneStr;
+    cartPush.nikeName = this.phoneName;
+    cartPush.address = this.addressStr;
+    
+    const databaseZone = cloudDatabase.zone('default');
+    const num = await databaseZone.upsert(cartPush);
+    hilog.info(0x0000, 'testTag', `Upsert success: ${num}`);
+    if (num > 0) {
+      showToast(`Successfully updated ${num} record(s)`);
+      router.back();
+    }
+  });
+
+
+
+After selecting a POI on the map, navigating to the new address page, filling in the details, and clicking "Save," the newly added address will be displayed in the address list. Future iterations will refine these pages to align with commercial app address addition workflows.
