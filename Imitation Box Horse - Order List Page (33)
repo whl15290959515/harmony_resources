@@ -1,0 +1,214 @@
+Technology Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we implemented the display of order details. However, the order confirmation page currently only appears after a successful order for users to view. We now need a permanent entry for users to view their orders and order statuses at any time. Order statuses are divided into multiple types, and we need to provide users with a switching function.
+
+Functional Analysis
+To implement this function:
+
+First, implement page switching using a tabs component.
+Add corresponding page components in tabcontent for different order statuses, such as "Awaiting Shipment," "Awaiting Receipt," and "Completed."
+Query orders when switching to the corresponding page. Note that the lifecycle methods of tabcontent are not re-executed when switching tabs, so we need to handle requests during tab changes to ensure real-time order list updates.
+Ensure that queried orders belong to the current user. When displaying the list, query product images from the order product list based on product_id to enrich the data.
+
+Code Implementation
+First, implement the switching page and add corresponding components. We will first implement the "Awaiting Shipment" page, and others can be created similarly.
+1. Create Tabs and Corresponding Content
+typescript
+import { OrderOver } from '../component/OrderOver';
+import { OrderWaitingGetShop } from '../component/OrderWaitingGetShop';
+import { OrderWaitingShop } from '../component/OrderWaitingShop';
+import { CommonTopBar } from '../widget/CommonTopBar';
+
+@Entry
+@Component
+struct MyOrderListPage {
+  @State currentIndex: number = 0;
+  @State fontColor: string = '#182431';
+  @State selectedFontColor: string = '#007DFF';
+  @State selectedIndex: number = 0;
+  private controller: TabsController = new TabsController();
+
+  @Builder tabBuilder(index: number, name: string) {
+    Column() {
+      Text(name)
+        .fontColor(this.selectedIndex === index ? this.selectedFontColor : this.fontColor)
+        .fontSize(16)
+        .fontWeight(this.selectedIndex === index ? 500 : 400)
+        .lineHeight(22)
+        .margin({ top: 17, bottom: 7 });
+      Divider()
+        .strokeWidth(2)
+        .width(40)
+        .color('#007DFF')
+        .opacity(this.selectedIndex === index ? 1 : 0);
+    }.width('100%');
+  }
+
+  build() {
+    Column() {
+      CommonTopBar({ title: "My Orders", alpha: 0, titleAlignment: TextAlign.Center, backButton: true });
+      Tabs({ barPosition: BarPosition.Start, index: this.currentIndex, controller: this.controller }) {
+        TabContent() {
+          Column() {
+            OrderWaitingShop({ currentIndex: this.currentIndex });
+          }.width('100%').height('100%');
+        }.tabBar(this.tabBuilder(0, 'Awaiting Shipment'));
+
+        TabContent() {
+          Column() {
+            // Content for "Awaiting Receipt"
+          }.width('100%').height('100%');
+        }.tabBar(this.tabBuilder(1, 'Awaiting Receipt'));
+
+        TabContent() {
+          Column() {
+            // Content for "Completed"
+          }.width('100%').height('100%');
+        }.tabBar(this.tabBuilder(2, 'Completed'));
+      }
+      .vertical(false)
+      .barMode(BarMode.Fixed)
+      .barWidth('100%')
+      .barHeight(56)
+      .animationDuration(0)
+      .onChange((index: number) => {
+        this.currentIndex = index;
+        this.selectedIndex = index;
+      })
+      .onAnimationStart((index: number, targetIndex: number, event: TabsAnimationEvent) => {
+        if (index === targetIndex) {
+          return;
+        }
+        this.selectedIndex = targetIndex;
+      })
+      .width('100%')
+      .height('100%')
+      .backgroundColor('#F1F3F5');
+    }.width('100%');
+  }
+}
+2. Implement Data Requests in the "Awaiting Shipment" Component
+typescript
+async aboutToAppear(): Promise<void> {
+  const value = await StorageUtils.getAll('user');
+  if (value !== "") {
+    this.user = JSON.parse(value);
+  }
+  if (this.currentIndexCheck === this.currentIndex) {
+    const databaseZone = cloudDatabase.zone('default');
+    const condition = new cloudDatabase.DatabaseQuery(order_list);
+    condition.equalTo("user_id", this.user?.user_id);
+    const listData = await databaseZone.query(condition);
+    const json = JSON.stringify(listData);
+    const data1: OrderList[] = JSON.parse(json);
+    this.orderInfo = data1;
+
+    const condition1 = new cloudDatabase.DatabaseQuery(order_product_list);
+    condition1.equalTo("order_product_id", data1[0].order_product_id);
+    const listData1 = await databaseZone.query(condition1);
+    const json1 = JSON.stringify(listData1);
+    this.productList = JSON.parse(json1);
+
+    this.flag = true;
+  }
+}
+
+async onRefresh(): Promise<void> {
+  if (this.currentIndexCheck === this.currentIndex) {
+    const databaseZone = cloudDatabase.zone('default');
+    const condition = new cloudDatabase.DatabaseQuery(order_list);
+    condition.equalTo("user_id", this.user?.user_id);
+    const listData = await databaseZone.query(condition);
+    const json = JSON.stringify(listData);
+    const data1: OrderList[] = JSON.parse(json);
+    this.orderInfo = data1;
+
+    const condition1 = new cloudDatabase.DatabaseQuery(order_product_list);
+    condition1.equalTo("order_product_id", data1[0].order_product_id);
+    const listData1 = await databaseZone.query(condition1);
+    const json1 = JSON.stringify(listData1);
+    this.productList = JSON.parse(json1);
+
+    this.flag = true;
+  }
+}
+3. Populate and Display Data
+typescript
+Column() {
+  List() {
+    ForEach(this.orderInfo, (item: OrderList, index: number) => {
+      ListItem() {
+        Column() {
+          Row() {
+            Text(item.order_create_time)
+              .fontSize(14)
+              .fontColor(Color.Black);
+            Text("Buyer has paid")
+              .fontSize(14)
+              .fontColor(Color.Black);
+          }
+          .padding(10)
+          .width('100%')
+          .justifyContent(FlexAlign.SpaceBetween);
+          Divider().width('100%').height(0.8).color("#e6e6e6");
+          List({ space: 10 }) {
+            ForEach(this.productList, (item: OrderProductList, pos: number) => {
+              ListItem() {
+                Column() {
+                  Image(item.img)
+                    .height(60)
+                    .width(60)
+                    .borderRadius(5);
+                }
+              }
+            });
+          }
+          .padding({ left: 10 })
+          .width('100%')
+          .listDirection(Axis.Horizontal)
+          .height(80);
+          Row() {
+            Text();
+            Blank();
+            Text() {
+              Span("Total: ")
+                .fontSize(16)
+                .fontColor(Color.Black);
+              Span("¥ ")
+                .fontSize(10)
+                .fontColor(Color.Red);
+              Span(this.price() + "")
+                .fontSize(16)
+                .fontColor(Color.Red);
+            }
+          }
+          .padding(10)
+          .width('100%')
+          .justifyContent(FlexAlign.SpaceBetween);
+        }
+        .margin({ top: 15 })
+        .backgroundColor(Color.White)
+        .borderRadius(10)
+        .padding(10)
+        .width('100%');
+      }
+    });
+  }
+}.padding(10)
+.width('100%')
+.height('100%')
+.backgroundColor('#F1F3F5');
+
+price(): number {
+  let number = 0;
+  for (let i = 0; i < this.productList.length; i++) {
+    number += this.productList[i].buyAmount * this.productList[i].price;
+  }
+  return number;
+}
+
+
+
+The "Awaiting Shipment" page now achieves the desired effect. For the remaining two pages, query corresponding data based on order_status and user_id.
