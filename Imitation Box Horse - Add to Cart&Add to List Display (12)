@@ -1,0 +1,368 @@
+Technical Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we implemented the specification selection popup for the product details page. This section focuses on adding products to the shopping cart and displaying cart items, which are essential features for any e-commerce application.
+
+Functional Analysis
+Add to Cart:
+Submit selected product specifications and quantities to the cart.
+Check if the product (with the same specification) already exists in the cart. If so, update the quantity instead of creating a new entry.
+Cart Item Display:
+Query and display the list of added products in the cart.
+
+Code Implementation
+1. Add to Cart Logic (ProductDetailsPage.ets)
+typescript
+async addToCart() {
+  try {
+    const databaseZone = cloudDatabase.zone('default');
+    const condition = new cloudDatabase.DatabaseQuery(cart_product_list);
+    condition
+      .equalTo("productId", this.productParams.id)
+      .and()
+      .equalTo("productSpecId", this.specList[this.checkIndex].id);
+    
+    const listData = await databaseZone.query(condition);
+    const json = JSON.stringify(listData);
+    hilog.info(0x0000, 'testTag', `Query result: ${json}`);
+    
+    const request: CartProductList[] = JSON.parse(json);
+    const cartItem = new cart_product_list();
+
+    if (request.length > 0) {
+      // Update existing cart item
+      const existingItem = request[0];
+      cartItem.id = existingItem.id;
+      cartItem.productId = existingItem.productId;
+      cartItem.productSpecId = existingItem.productSpecId;
+      cartItem.productName = existingItem.productName;
+      cartItem.productSpecName = existingItem.productSpecName;
+      cartItem.productImgAddress = existingItem.productImgAddress;
+      cartItem.buyAmount = this.addNumber + existingItem.buyAmount;
+      cartItem.isNeedPay = existingItem.isNeedPay;
+      cartItem.activityType = existingItem.activityType;
+      cartItem.productPrice = existingItem.productPrice;
+      cartItem.productOriginalPrice = existingItem.productOriginalPrice;
+      cartItem.couponPrice = existingItem.couponPrice;
+    } else {
+      // Create new cart item
+      cartItem.id = Math.floor(Math.random() * 1000000);
+      cartItem.productId = this.productParams.id;
+      cartItem.productSpecId = this.specList[this.checkIndex].id;
+      cartItem.productName = this.productParams.name;
+      cartItem.productSpecName = this.specList[this.checkIndex].name;
+      cartItem.productImgAddress = this.productParams.url;
+      cartItem.buyAmount = this.addNumber;
+      cartItem.isNeedPay = true;
+      cartItem.activityType = "1";
+      cartItem.productPrice = this.productParams.price;
+      cartItem.productOriginalPrice = this.productParams.original_price;
+      cartItem.couponPrice = 0;
+    }
+
+    const result = await databaseZone.upsert(cartItem);
+    hilog.info(0x0000, 'testTag', `Upsert result: ${result}`);
+    
+    if (result > 0) {
+      showToast("Added to cart successfully");
+      this.updateCartCount(); // Update cart badge count
+      this.controller.close(); // Close the specification dialog
+    }
+  } catch (err) {
+    hilog.error(0x0000, 'testTag', `Failed to add to cart: ${err}`);
+    showToast("Failed to add to cart");
+  }
+}
+
+// Update cart count (e.g., for the cart badge)
+async updateCartCount() {
+  const databaseZone = cloudDatabase.zone('default');
+  const condition = new cloudDatabase.DatabaseQuery(cart_product_list);
+  const items = await databaseZone.query(condition);
+  this.cartCount = items.length;
+}
+2. Shopping Cart Page (CartList.ets)
+typescript
+import { CartProductList } from "../entity/CartProductList";
+import { cloudDatabase } from "@kit.CloudFoundationKit";
+import { cart_product_list } from "../clouddb/cart_product_list";
+import { hilog } from "@kit.PerformanceAnalysisKit";
+import router from '@ohos.router';
+
+let databaseZone = cloudDatabase.zone('default');
+
+@Entry
+@Component
+export struct CartPage {
+  @State productList: CartProductList[] = [];
+  @State isLoading: boolean = true;
+  @State totalPrice: number = 0;
+
+  async aboutToAppear() {
+    try {
+      const condition = new cloudDatabase.DatabaseQuery(cart_product_list);
+      const listData = await databaseZone.query(condition);
+      this.productList = JSON.parse(JSON.stringify(listData));
+      this.calculateTotalPrice();
+      this.isLoading = false;
+      hilog.info(0x0000, 'testTag', `Cart items loaded: ${this.productList.length}`);
+    } catch (err) {
+      hilog.error(0x0000, 'testTag', `Failed to load cart items: ${err}`);
+      this.isLoading = false;
+    }
+  }
+
+  // Calculate total price for selected items
+  calculateTotalPrice() {
+    this.totalPrice = this.productList
+      .filter(item => item.isNeedPay)
+      .reduce((sum, item) => sum + (item.productPrice * item.buyAmount), 0);
+  }
+
+  // Remove item from cart
+  async removeItem(productId: number, specId: number) {
+    try {
+      const condition = new cloudDatabase.DatabaseQuery(cart_product_list)
+        .equalTo("productId", productId)
+        .and()
+        .equalTo("productSpecId", specId);
+      
+      const result = await databaseZone.delete(condition);
+      if (result > 0) {
+        this.productList = this.productList.filter(
+          item => item.productId !== productId || item.productSpecId !== specId
+        );
+        this.calculateTotalPrice();
+        showToast("Item removed from cart");
+      }
+    } catch (err) {
+      hilog.error(0x0000, 'testTag', `Failed to remove item: ${err}`);
+    }
+  }
+
+  build() {
+    Column() {
+      // Header
+      Row() {
+        Text("Shopping Cart")
+          .fontSize(20)
+          .fontWeight(FontWeight.Bold)
+          .margin({ left: 15 });
+        Blank();
+        Button("Edit")
+          .margin({ right: 15 })
+          .onClick(() => {
+            // Edit mode logic
+          });
+      }
+      .height(50)
+      .width('100%')
+      .backgroundColor('#FFFFFF');
+
+      // Cart items list
+      if (this.isLoading) {
+        // Loading indicator
+        LoadingProgress()
+          .color('#FF4500')
+          .width(50)
+          .height(50)
+          .margin({ top: 100 });
+      } else if (this.productList.length === 0) {
+        // Empty cart
+        Column() {
+          Image($r('app.media.empty_cart'))
+            .width(100)
+            .height(100)
+            .margin({ top: 50 });
+          Text("Your cart is empty")
+            .fontSize(16)
+            .margin({ top: 20 });
+          Button("Continue Shopping")
+            .onClick(() => router.back());
+        }
+        .width('100%')
+        .height('100%')
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center);
+      } else {
+        // Cart items
+        List() {
+          ForEach(this.productList, (item: CartProductList, index: number) => {
+            ListItem() {
+              Row() {
+                // Checkbox (for selecting items)
+                Checkbox({ type: CheckboxType.Circle, isChecked: item.isNeedPay })
+                  .onChange((isChecked) => {
+                    item.isNeedPay = isChecked;
+                    this.calculateTotalPrice();
+                  });
+                
+                Image(item.productImgAddress || 'https://via.placeholder.com/120x120')
+                  .height(120)
+                  .width(120)
+                  .margin({ left: 10 });
+                
+                Column({ space: 5 }) {
+                  Text(item.productName)
+                    .fontColor(Color.Black)
+                    .fontSize(16)
+                    .maxLines(2)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis });
+                  
+                  Text(item.productSpecName)
+                    .fontColor(Color.Grey)
+                    .fontSize(14);
+                  
+                  Row() {
+                    Text() {
+                      Span("¥")
+                        .fontSize(14)
+                        .fontColor(Color.Red);
+                      Span(item.productPrice.toString())
+                        .fontSize(20)
+                        .fontColor(Color.Red);
+                    }
+                    
+                    Text("¥" + item.productOriginalPrice)
+                      .fontColor('#999')
+                      .decoration({
+                        type: TextDecorationType.LineThrough,
+                        color: Color.Gray
+                      })
+                      .fontSize(14)
+                      .margin({ left: 10 });
+                  }
+                  .margin({ top: 5 });
+                  
+                  // Quantity adjustment
+                  Row() {
+                    Text(" - ")
+                      .textAlign(TextAlign.Center)
+                      .border({ width: 0.5, color: Color.Gray })
+                      .fontSize(14)
+                      .height(20)
+                      .padding({ left: 7, right: 7 })
+                      .fontColor(Color.Black)
+                      .onClick(async () => {
+                        if (item.buyAmount > 1) {
+                          item.buyAmount--;
+                          await this.updateQuantity(item);
+                        }
+                      });
+                    
+                    Text(item.buyAmount.toString())
+                      .textAlign(TextAlign.Center)
+                      .fontColor(Color.Black)
+                      .fontSize(14)
+                      .height(20)
+                      .padding({ left: 20, right: 20 })
+                      .border({ width: 0.5, color: Color.Gray });
+                    
+                    Text(" + ")
+                      .textAlign(TextAlign.Center)
+                      .fontColor(Color.Black)
+                      .fontSize(14)
+                      .height(20)
+                      .padding({ left: 7, right: 7 })
+                      .onClick(async () => {
+                        item.buyAmount++;
+                        await this.updateQuantity(item);
+                      });
+                    
+                    // Delete button
+                    Image($r('app.media.delete_icon'))
+                      .width(20)
+                      .height(20)
+                      .margin({ left: 20 })
+                      .onClick(() => this.removeItem(item.productId, item.productSpecId));
+                  }
+                  .width('100%')
+                  .justifyContent(FlexAlign.Start)
+                  .margin({ top: 5 });
+                }
+                .width('100%')
+                .margin({ left: 10 });
+              }
+              .width('100%')
+              .padding(10);
+            }
+          });
+        }
+        .height('100%')
+        .width('100%')
+        .margin({ bottom: 80 });
+      }
+      
+      // Fixed bottom bar
+      if (this.productList.length > 0) {
+        Row() {
+          // Select all checkbox
+          Row() {
+            Checkbox({ type: CheckboxType.Circle, isChecked: this.productList.every(item => item.isNeedPay) })
+              .onChange((isChecked) => {
+                this.productList.forEach(item => item.isNeedPay = isChecked);
+                this.calculateTotalPrice();
+              });
+            Text("Select All")
+              .fontSize(16)
+              .margin({ left: 5 });
+          }
+          .margin({ left: 15 });
+          
+          Blank();
+          
+          // Total price
+          Column() {
+            Text("Total:")
+              .fontSize(14)
+              .fontColor(Color.Gray);
+            Text("¥" + this.totalPrice.toFixed(2))
+              .fontSize(18)
+              .fontColor(Color.Red)
+              .fontWeight(FontWeight.Bold);
+          }
+          .margin({ right: 10 });
+          
+          // Checkout button
+          Button("Checkout (" + this.productList.filter(item => item.isNeedPay).length + ")")
+            .width(120)
+            .backgroundColor(Color.Red)
+            .fontColor(Color.White)
+            .onClick(() => {
+              const selectedItems = this.productList.filter(item => item.isNeedPay);
+              if (selectedItems.length === 0) {
+                showToast("Please select items to checkout");
+                return;
+              }
+              // Navigate to checkout page
+              router.pushUrl({
+                url: 'pages/CheckoutPage',
+                params: { items: selectedItems }
+              });
+            });
+        }
+        .height(60)
+        .width('100%')
+        .backgroundColor('#FFFFFF')
+        .alignItems(VerticalAlign.Center)
+        .position({ bottom: 0 });
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor('#F5F5F5');
+  }
+
+  // Update item quantity in database
+  async updateQuantity(item: CartProductList) {
+    try {
+      const databaseZone = cloudDatabase.zone('default');
+      await databaseZone.upsert(item);
+      this.calculateTotalPrice();
+    } catch (err) {
+      hilog.error(0x0000, 'testTag', `Failed to update quantity: ${err}`);
+    }
+  }
+}
+This implementation provides a robust foundation for shopping cart functionality, ready for further enhancements such as coupon application, shipping options, and payment processing.
