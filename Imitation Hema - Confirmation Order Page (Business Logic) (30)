@@ -1,0 +1,442 @@
+Technology Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we implemented the page rendering, price calculation, discount calculation, and order list display for the order confirmation page. In this section, we will implement the entire business logic of the order confirmation page. First, we need to implement address selection, save the calculated prices, product lists, and other data, then create order table entities, and submit this data to the order table.
+
+Functional Analysis
+To implement the order confirmation function, we first need to create the corresponding table. The data we need to pay attention to includes the user ID corresponding to the current order, the table ID, and the data carried by the table, such as order creation time, completion time, refund time, order number, payment method, remarks, etc. We also need to consider how to effectively insert and query data when there are multiple items in the product list.
+
+Code Implementation
+First, let's implement the remark pop-up dialog:
+
+typescript
+import showToast from "../utils/ToastUtils";
+import { cloudDatabase } from "@kit.CloudFoundationKit";
+import { user_info } from "../clouddb/user_info";
+import { UserInfo } from "../entity/UserInfo";
+import { hilog } from "@kit.PerformanceAnalysisKit";
+
+@Preview
+@CustomDialog
+export struct OrderRemarkDialog {
+  controller: CustomDialogController;
+  @Link str: string;
+  build() {
+    Column({ space: 20 }) {
+      Text("Remark")
+        .fontSize($r('app.float.size_20'))
+        .fontWeight(FontWeight.Bold)
+        .fontColor(Color.Black)
+        .margin({ top: 20 });
+
+      TextArea({ text: this.str })
+        .backgroundColor("#f6f6f6")
+        .placeholderColor("#ff999595")
+        .fontColor("#333333")
+        .height(150)
+        .maxLength(50)
+        .onChange((value: String) => {
+          if (value.length > 50) {
+            showToast("Up to 50 characters~");
+            return;
+          } else {
+            this.str = value.toString();
+          }
+        })
+        .margin(20);
+
+      Row() {
+        Text("Cancel")
+          .width('30%')
+          .textAlign(TextAlign.Center)
+          .height(40)
+          .fontSize(18)
+          .fontColor(Color.White)
+          .backgroundColor(0xff0000)
+          .borderRadius(30)
+          .margin({ top: 30 })
+          .onClick(() => {
+            this.str = '';
+            this.controller.close();
+          });
+
+        Text("Confirm")
+          .width('30%')
+          .textAlign(TextAlign.Center)
+          .height(40)
+          .fontSize(18)
+          .fontColor(Color.White)
+          .backgroundColor(0xff0000)
+          .borderRadius(30)
+          .margin({ top: 30 })
+          .onClick(async () => {
+            if (this.str !== '') {
+              this.controller.close();
+            } else {
+              this.str = '';
+              this.controller.close();
+            }
+          });
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.SpaceAround);
+    }
+    .borderRadius({ topLeft: 20, topRight: 20 })
+    .justifyContent(FlexAlign.Start)
+    .backgroundColor(Color.White)
+    .height(400)
+    .width('100%');
+  }
+}
+
+Invoke the dialog on the order confirmation page:
+
+typescript
+orderController: CustomDialogController | null = new CustomDialogController({
+  builder: OrderRemarkDialog({
+    str: this.remark
+  }),
+  alignment: DialogAlignment.Bottom,
+  customStyle: true
+});
+
+// Add a click event to the order remark to trigger the dialog
+Text(this.remark !== "" ? this.remark : "Optional, please specify remarks")
+  .fontColor(Color.Gray)
+  .fontSize(12)
+  .onClick(() => {
+    this.orderController?.open();
+  });
+
+// Define the variable to receive remarks
+@State remark: string = '';
+
+Next, retrieve the saved user information:
+
+typescript
+// Define the user variable
+@State user: User | null = null;
+
+// Receive user data
+const value = await StorageUtils.getAll('user');
+if (value !== "") {
+  this.user = JSON.parse(value);
+}
+
+// Add a click event to the order submission button
+Text("Submit Order")
+  .fontColor(Color.White)
+  .padding(10)
+  .borderRadius(10)
+  .backgroundColor("#d81e06")
+  .fontSize(14)
+  .onClick(() => {
+    // Order submission logic will be added here
+  });
+
+Next, perform cloud operations by first creating the table, entity, and DB class for saving the product list:
+
+json
+{
+  "objectTypeName": "order_product_list",
+  "fields": [
+    {"fieldName": "id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "order_product_id", "fieldType": "Integer", "notNull": true, "defaultValue": 0},
+    {"fieldName": "img", "fieldType": "String"},
+    {"fieldName": "price", "fieldType": "Double"},
+    {"fieldName": "name", "fieldType": "String"},
+    {"fieldName": "originalPrice", "fieldType": "Double"},
+    {"fieldName": "spec", "fieldType": "String"},
+    {"fieldName": "buyAmount", "fieldType": "Integer"}
+  ],
+  "indexes": [
+    {"indexName": "field1Index", "indexList": [{"fieldName":"id","sortType":"ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+
+Entity class:
+
+typescript
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2020-2023. All rights reserved.
+ * Generated by the CloudDB ObjectType compiler. DO NOT EDIT!
+ */
+
+class OrderProductList {
+  id: number;
+  order_product_id: number = 0;
+  img: string;
+  price: number;
+  name: string;
+  originalPrice: number;
+  spec: string;
+  buyAmount: number;
+
+  constructor() {
+  }
+
+  getFieldTypeMap(): Map<string, string> {
+    const fieldTypeMap = new Map<string, string>();
+    fieldTypeMap.set('id', 'Integer');
+    fieldTypeMap.set('order_product_id', 'Integer');
+    fieldTypeMap.set('img', 'String');
+    fieldTypeMap.set('price', 'Double');
+    fieldTypeMap.set('name', 'String');
+    fieldTypeMap.set('originalPrice', 'Double');
+    fieldTypeMap.set('spec', 'String');
+    fieldTypeMap.set('buyAmount', 'Integer');
+    return fieldTypeMap;
+  }
+
+  getClassName(): string {
+    return 'order_product_list';
+  }
+
+  getPrimaryKeyList(): string[] {
+    const primaryKeyList: string[] = [];
+    primaryKeyList.push('id');
+    return primaryKeyList;
+  }
+
+  getIndexList(): string[] {
+    const indexList: string[] = [];
+    indexList.push('id');
+    return indexList;
+  }
+
+  getEncryptedFieldList(): string[] {
+    const encryptedFieldList: string[] = [];
+    return encryptedFieldList;
+  }
+
+  // Getter and setter methods
+  setId(id: number): void {
+    this.id = id;
+  }
+
+  getId(): number {
+    return this.id;
+  }
+
+  setOrder_product_id(order_product_id: number): void {
+    this.order_product_id = order_product_id;
+  }
+
+  getOrder_product_id(): number {
+    return this.order_product_id;
+  }
+
+  // ... (Other getter and setter methods follow the same pattern)
+
+  static parseFrom(inputObject: any): OrderProductList {
+    const result = new OrderProductList();
+    if (!inputObject) {
+      return result;
+    }
+    if (inputObject.id !== undefined) {
+      result.id = inputObject.id;
+    }
+    if (inputObject.order_product_id !== undefined) {
+      result.order_product_id = inputObject.order_product_id;
+    }
+    // ... (Field assignment logic for other properties)
+    return result;
+  }
+}
+
+export { OrderProductList };
+
+DB class:
+
+typescript
+import { cloudDatabase } from '@kit.CloudFoundationKit';
+
+class order_product_list extends cloudDatabase.DatabaseObject {
+  public id: number;
+  public order_product_id = 0;
+  public img: string;
+  public price: number;
+  public name: string;
+  public originalPrice: number;
+  public spec: string;
+  public buyAmount: number;
+
+  public naturalbase_ClassName(): string {
+    return 'order_product_list';
+  }
+}
+
+export { order_product_list };
+
+Since there are multiple products, we implement the addition method within a for loop:
+
+typescript
+let databaseZone = cloudDatabase.zone('default');
+try {
+  for (let i = 0; i < this.productList.length; i++) {
+    const productPush = new order_product_list();
+    productPush.id = this.codeId + i;
+    productPush.order_product_id = this.codeId;
+    productPush.img = this.productList[i].productImgAddress;
+    productPush.price = this.productList[i].productPrice;
+    productPush.name = this.productList[i].productName;
+    productPush.originalPrice = this.productList[i].productOriginalPrice;
+    productPush.spec = this.productList[i].productSpecName;
+    productPush.buyAmount = this.productList[i].buyAmount;
+    const num = await databaseZone.upsert(productPush);
+    hilog.info(0x0000, 'testTag', `Succeeded in upserting data, result: ${num}`);
+  }
+} catch (e) {
+  hilog.info(0x0000, 'testTag', `Upsert failed, error: ${e}`);
+}
+
+Next, create the order table to achieve data linking between the two tables via order_product_id:
+
+json
+{
+  "objectTypeName": "order_list",
+  "fields": [
+    {"fieldName": "id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "user_id", "fieldType": "Integer", "notNull": true, "defaultValue": 0},
+    {"fieldName": "order_code", "fieldType": "String"},
+    {"fieldName": "order_status", "fieldType": "Integer"},
+    {"fieldName": "order_product_id", "fieldType": "String"},
+    {"fieldName": "address", "fieldType": "String"},
+    {"fieldName": "nickname", "fieldType": "String"},
+    {"fieldName": "phone", "fieldType": "String"},
+    {"fieldName": "order_remark", "fieldType": "String"},
+    {"fieldName": "pay_type", "fieldType": "String"},
+    {"fieldName": "order_create_time", "fieldType": "String"},
+    {"fieldName": "order_pay_time", "fieldType": "String"},
+    {"fieldName": "order_delivery_time", "fieldType": "String"},
+    {"fieldName": "order_over_time", "fieldType": "String"}
+  ],
+  "indexes": [
+    {"indexName": "field1Index", "indexList": [{"fieldName":"id","sortType":"ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+
+Entity class:
+
+typescript
+class OrderList {
+  id: number;
+  user_id: number = 0;
+  order_code: string;
+  order_status: number;
+  order_product_id: string;
+  address: string;
+  nickname: string;
+  phone: string;
+  order_remark: string;
+  pay_type: string;
+  order_create_time: string;
+  order_pay_time: string;
+  order_delivery_time: string;
+  order_over_time: string;
+
+  constructor() {
+  }
+
+  getFieldTypeMap(): Map<string, string> {
+    const fieldTypeMap = new Map<string, string>();
+    fieldTypeMap.set('id', 'Integer');
+    fieldTypeMap.set('user_id', 'Integer');
+    fieldTypeMap.set('order_code', 'String');
+    fieldTypeMap.set('order_status', 'Integer');
+    fieldTypeMap.set('order_product_id', 'String');
+    fieldTypeMap.set('address', 'String');
+    fieldTypeMap.set('nickname', 'String');
+    fieldTypeMap.set('phone', 'String');
+    fieldTypeMap.set('order_remark', 'String');
+    fieldTypeMap.set('pay_type', 'String');
+    fieldTypeMap.set('order_create_time', 'String');
+    fieldTypeMap.set('order_pay_time', 'String');
+    fieldTypeMap.set('order_delivery_time', 'String');
+    fieldTypeMap.set('order_over_time', 'String');
+    return fieldTypeMap;
+  }
+
+  // ... (Other methods such as getClassName, getPrimaryKeyList, etc., follow the same pattern as OrderProductList)
+
+  static parseFrom(inputObject: any): OrderList {
+    const result = new OrderList();
+    if (!inputObject) {
+      return result;
+    }
+    if (inputObject.id !== undefined) {
+      result.id = inputObject.id;
+    }
+    if (inputObject.user_id !== undefined) {
+      result.user_id = inputObject.user_id;
+    }
+    // ... (Field assignment logic for other properties)
+    return result;
+  }
+}
+
+export { OrderList };
+
+DB class:
+
+typescript
+import { cloudDatabase } from '@kit.CloudFoundationKit';
+
+class order_list extends cloudDatabase.DatabaseObject {
+  public id: number;
+  public user_id = 0;
+  public order_code: string;
+  public order_status: number;
+  public order_product_id: string;
+  public address: string;
+  public nickname: string;
+  public phone: string;
+  public order_remark: string;
+  public pay_type: string;
+  public order_create_time: string;
+  public order_pay_time: string;
+  public order_delivery_time: string;
+  public order_over_time: string;
+
+  public naturalbase_ClassName(): string {
+    return 'order_list';
+  }
+}
+
+export { order_list };
+
+After adding all the above, continue to add the corresponding data in the click event of the submit button:
+
+typescript
+const orderPush = new order_list();
+orderPush.id = Math.floor(Math.random() * 1000000);
+orderPush.user_id = this.user!.user_id;
+orderPush.order_product_id = String(this.codeId);
+orderPush.order_code = this.generateOrderNo(10);
+orderPush.order_status = 0;
+if (this.remark !== '') {
+  orderPush.order_remark = this.remark;
+}
+orderPush.address = this.addressInfo.address;
+orderPush.nickname = this.addressInfo.nikeName;
+orderPush.phone = this.addressInfo.phone;
+orderPush.order_create_time = this.formatCurrentDate();
+orderPush.order_pay_time = this.formatCurrentDate();
+const num = await databaseZone.upsert(orderPush);
+hilog.info(0x0000, 'testTag', `Succeeded in upserting data, result: ${num}`);
+
+
+After completing the above additions, clicking the submit button will implement the business logic of the order confirmation page.
