@@ -1,0 +1,333 @@
+Technical Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we implemented a custom title bar and data reception for the product details page. This section focuses on enriching the product details page with comprehensive information, including product attributes, images, specifications, promotion details, and fixed bottom actions (Add to Cart and Buy Now) with real-time cart updates.
+
+Functional Analysis
+Layout Requirements:
+Scrollable content area for extensive product information.
+Fixed bottom section with Add to Cart and Buy Now buttons.
+Real-time cart item count update upon adding products.
+Quick navigation to the cart page.
+
+Interactive Features:
+Specification selection (size, color, quantity).
+Promotion display (discounts, purchase limits).
+Smooth scrolling and responsive UI.
+
+Code Implementation
+1. Enhanced Product Details Page (ProductDetailsPage.ets)
+typescript
+import { CommonTopBar } from '../widget/CommonTopBar';
+import router from '@ohos.router';
+import { HomeProductList } from '../entity/home_product_list';
+import promptAction from '@ohos.promptAction';
+
+@Entry
+@Component
+struct ProductDetailsPage {
+  @State productParams: HomeProductList = {} as HomeProductList;
+  @State selectedSpec: string = 'Default';
+  @State cartCount: number = 0;
+  private scroller: Scroller = new Scroller();
+
+  aboutToAppear(): void {
+    const params = router.getParams() as HomeProductList;
+    if (params) {
+      this.productParams = params;
+      // Simulate cart count from local storage or global state
+      this.cartCount = 2; // Replace with actual cart data retrieval
+    }
+  }
+
+  // Add product to cart
+  addToCart() {
+    if (!this.selectedSpec || this.selectedSpec === 'Default') {
+      promptAction.showToast({
+        message: 'Please select a specification',
+        duration: 2000
+      });
+      return;
+    }
+    
+    // Update cart count (simulation)
+    this.cartCount += 1;
+    promptAction.showToast({
+      message: 'Added to cart',
+      duration: 2000
+    });
+    
+    // Save to local storage or update global cart state
+    // e.g., storage.set('cartCount', this.cartCount);
+  }
+
+  // Navigate to cart page
+  goToCart() {
+    router.pushUrl({
+      url: 'pages/CartPage'
+    });
+  }
+
+  build() {
+    Stack({ alignContent: Alignment.Bottom }) {
+      Scroll(this.scroller) {
+        Column() {
+          CommonTopBar({ 
+            title: this.productParams.name || "Product Details", 
+            alpha: 0, 
+            titleAlignment: TextAlign.Center, 
+            backButton: true 
+          });
+          
+          // Product image gallery
+          Image(this.productParams.url || 'https://via.placeholder.com/750x400')
+            .width('100%')
+            .height(300)
+            .objectFit(ImageFit.Cover);
+          
+          Column({ space: 10 }) {
+            // Price section
+            Row() {
+              if (this.productParams.promotion_spread_price > 0) {
+                Text() {
+                  Span("¥")
+                    .fontSize(14)
+                    .fontColor(Color.Red);
+                  Span((this.productParams.price - this.productParams.promotion_spread_price).toString())
+                    .fontSize(20)
+                    .fontColor(Color.Red);
+                }
+              } else {
+                Text() {
+                  Span("¥")
+                    .fontSize(14)
+                    .fontColor(Color.Red);
+                  Span(this.productParams.price.toString())
+                    .fontSize(20)
+                    .fontColor(Color.Red);
+                }
+              }
+              
+              Text("¥" + this.productParams.original_price)
+                .fontColor('#999')
+                .decoration({
+                  type: TextDecorationType.LineThrough,
+                  color: Color.Gray
+                })
+                .fontSize(16)
+                .margin({ left: 10 });
+              
+              if (this.productParams.promotion_spread_price > 0) {
+                Row() {
+                  Text("Save ¥" + this.productParams.promotion_spread_price)
+                    .fontSize(14)
+                    .backgroundColor("#FB424C")
+                    .borderRadius(20)
+                    .padding(3)
+                    .textAlign(TextAlign.Center);
+                  Text("Limit " + this.productParams.max_loop_amount + " per person")
+                    .margin({ left: 5 })
+                    .fontSize(14)
+                    .backgroundColor("#FB424C")
+                    .borderRadius(20)
+                    .padding(3)
+                    .textAlign(TextAlign.Center);
+                }
+                .padding({ top: 2, bottom: 2, left: 10 });
+              }
+            }
+            .padding(10);
+              
+            if (this.productParams.promotion_spread_price > 0) {
+              Text(this.productParams.endTime)
+                .fontSize(14)
+                .backgroundColor("#FB424C")
+                .borderRadius(20)
+                .padding(3)
+                .margin({ left: 10 })
+                .textAlign(TextAlign.Center);
+            }
+              
+            // Product name and details
+            Text(this.productParams.name || 'Product Name')
+              .fontSize(20)
+              .fontColor(Color.Black)
+              .margin({ left: 10 })
+              .fontWeight(FontWeight.Bold);
+            Text(this.productParams.text_message || 'Product description')
+              .fontSize(14)
+              .fontColor(Color.Black)
+              .margin({ left: 10 });
+            Row() {
+              Text("Sales: " + this.productParams.sales_volume)
+                .fontSize(14)
+                .fontColor(Color.Black);
+            }
+            .padding(10)
+            .width('100%')
+            .justifyContent(FlexAlign.Start);
+              
+            // Delivery information
+            Divider().width('100%').height(5).backgroundColor("#f7f7f7");
+            Row() {
+              Text("Delivery")
+                .fontColor(Color.Gray)
+                .fontSize(14);
+              Text(this.productParams.delivery_time || 'Shipped within 24h')
+                .margin({ left: 20 })
+                .fontSize(14)
+                .fontColor(Color.Black);
+            }
+            .padding(10)
+            .width('100%')
+            .justifyContent(FlexAlign.Start);
+              
+            // Product parameters
+            Divider().width('100%').height(5).backgroundColor("#f7f7f7");
+            Row() {
+              Text("Parameters")
+                .fontColor(Color.Gray)
+                .fontSize(14);
+              Text("Storage: ")
+                .margin({ left: 20 })
+                .fontSize(14)
+                .fontColor(Color.Black);
+              Text(this.productParams.parameter || 'Refrigerated')
+                .fontSize(14)
+                .fontColor(Color.Black);
+            }
+            .padding(10)
+            .width('100%')
+            .justifyContent(FlexAlign.Start);
+              
+            // Specification selection
+            Divider().width('100%').height(5).backgroundColor("#f7f7f7");
+            Row() {
+              Text("Specifications")
+                .fontColor(Color.Gray)
+                .fontSize(14);
+              Text(this.selectedSpec || 'Please select a specification')
+                .margin({ left: 20 })
+                .fontSize(14)
+                .fontColor(Color.Black);
+            }
+            .padding(10)
+            .width('100%')
+            .justifyContent(FlexAlign.Start);
+              
+            // Sample specification options (replace with dynamic data)
+            Divider().width('100%').height(5).backgroundColor("#f7f7f7");
+            Text("Available Specifications")
+              .fontSize(16)
+              .fontWeight(FontWeight.Bold)
+              .margin({ left: 10, top: 5, bottom: 5 });
+            Row() {
+              // Sample specifications (e.g., size, color)
+              ForEach(['500g', '1kg', '2kg'], (spec: string) => {
+                Text(spec)
+                  .padding(8)
+                  .backgroundColor(this.selectedSpec === spec ? '#FB424C' : '#F0F0F0')
+                  .fontColor(this.selectedSpec === spec ? Color.White : Color.Black)
+                  .borderRadius(8)
+                  .onClick(() => this.selectedSpec = spec);
+              })
+            }
+            .padding(10)
+            .width('100%')
+            .justifyContent(FlexAlign.Start)
+            .spacing(10);
+          }
+          .alignItems(HorizontalAlign.Start)
+          .width('100%');
+        }
+        .alignItems(HorizontalAlign.Start)
+        .backgroundColor(Color.White);
+      }
+      .padding({ bottom: 80 })
+      .height('100%')
+      .width('100%');
+      
+      // Fixed bottom action bar
+      Row() {
+        Stack() {
+          Image($r('app.media.shopping_cart'))
+            .width(35)
+            .height(35)
+            .objectFit(ImageFit.Contain);
+          if (this.cartCount > 0) {
+            Text(this.cartCount.toString())
+              .fontSize(10)
+              .backgroundColor(Color.Red)
+              .borderRadius(10)
+              .padding(4)
+              .position({ x: 20, y: -10 });
+          }
+        }
+        .onClick(() => this.goToCart())
+        .width(50)
+        .height(50);
+        
+        Blank();
+        
+        Text("Add to Cart")
+          .padding(10)
+          .width(100)
+          .textAlign(TextAlign.Center)
+          .backgroundColor("#FCDB29")
+          .fontColor(Color.White)
+          .borderRadius({ topLeft: 15, bottomLeft: 15 })
+          .onClick(() => this.addToCart());
+        
+        Text("Buy Now")
+          .padding(10)
+          .textAlign(TextAlign.Center)
+          .width(100)
+          .backgroundColor(Color.Red)
+          .fontColor(Color.White)
+          .borderRadius({ topRight: 15, bottomRight: 15 })
+          .onClick(() => {
+            if (this.selectedSpec === 'Default') {
+              promptAction.showToast({
+                message: 'Please select a specification',
+                duration: 2000
+              });
+              return;
+            }
+            // Navigate to checkout
+            router.pushUrl({
+              url: 'pages/CheckoutPage',
+              params: { ...this.productParams, spec: this.selectedSpec }
+            });
+          });
+      }
+      .padding(15)
+      .justifyContent(FlexAlign.SpaceBetween)
+      .width('100%')
+      .backgroundColor(Color.White)
+      .shadow({ radius: 2, color: '#EEEEEE', offsetX: 0, offsetY: -1 });
+    }
+    .backgroundColor(Color.White);
+  }
+}
+Key Enhancements
+Shopping Cart Functionality:
+Displays cart item count with a badge on the cart icon.
+addToCart() method updates the cart count and shows a toast notification.
+goToCart() navigates to the cart page for detailed management.
+Specification Selection:
+Interactive specification buttons with visual feedback (highlight for selected option).
+Validation to ensure a specification is selected before adding to cart.
+Promotion Display:
+Highlights discounted prices with strikethrough original prices.
+Displays promotion end times and purchase limits.
+UI Improvements:
+Fixed bottom action bar with shadow for visual separation.
+Responsive layout with proper spacing and alignment.
+Placeholder images for missing product URLs.
+Implementation Notes
+State Management: The cartCount state can be replaced with a global cart service for cross-page consistency.
+Error Handling: Added toast notifications for missing specifications or other user input errors.
+Navigation: Buttons trigger appropriate navigation or actions (add to cart, buy now, view cart).
+
+This implementation provides a comprehensive product details page with essential e-commerce features, ready for further integration with backend services and user authentication.
