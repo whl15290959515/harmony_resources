@@ -1,0 +1,220 @@
+
+Technology Stack
+Appgallery Connect
+
+Development Preparation
+Previously, we implemented content related to the shopping cart and displayed the shopping cart data list. However, after settling the order, the shopping cart list does not refresh, the bottom status bar lacks obvious data display to remind users, and when adding new products on the product details page, the bottom does not update synchronously. This section will address these issues.
+
+Functional Analysis
+Adding New Products
+When adding new products, we need to display a marker showing the current quantity of products in the upper right corner of the shopping cart icon.
+Submitting the Shopping Cart Product List
+When submitting the shopping cart product list, we need to synchronously refresh the quantity display in the upper right corner of the shopping cart and update the data on the shopping cart list page.
+Deleting Shopping Cart Products
+When sliding to delete products in the shopping cart, refresh the list on the list page and update the product quantity display on the bottom status bar.
+
+Code Implementation
+First, add a Badge component to the upper right corner of the bottom shopping cart icon:
+
+typescript
+@Builder tabBuilder(title: string, targetIndex: number, selectedImg: Resource, normalImg: Resource) {
+  Column() {
+    if (targetIndex === 2) {
+      Badge({
+        count: this.badgeCount,
+        style: { badgeSize: 14, badgeColor: '#FA2A2D' },
+        position: BadgePosition.RightTop,
+      }) {
+        Image(this.currentIndex === targetIndex ? selectedImg : normalImg)
+          .width(30)
+          .height(30);
+      }
+    } else {
+      Image(this.currentIndex === targetIndex ? selectedImg : normalImg)
+        .width(this.isCheck_Index_One && targetIndex === 0 ? 50 : 25)
+        .height(this.isCheck_Index_One && targetIndex === 0 ? 50 : 25)
+        .borderRadius(this.isCheck_Index_One && targetIndex === 0 ? 25 : 0);
+    }
+    Text(title)
+      .fontSize(14)
+      .margin({ top: 5 })
+      .fontWeight(this.currentIndex === targetIndex ? FontWeight.Bold : FontWeight.Normal)
+      .fontColor(this.currentIndex === targetIndex ? '#fff65753' : '#6B6B6B');
+  }
+  .width('100%')
+  .height(50)
+  .justifyContent(FlexAlign.Center);
+}
+
+Next, add a variable to control refreshing in the shopping cart component and listen for changes. After modification, execute the cloud database query method to retrieve the current logged-in user's shopping cart list. After submitting the order, pass the status through an emitter on the order submission page:
+Order Submission
+typescript
+Text("Submit Order")
+  .fontColor(Color.White)
+  .padding(10)
+  .borderRadius(10)
+  .backgroundColor("#d81e06")
+  .fontSize(14)
+  .onClick(async () => {
+    if (this.addressInfo != null) {
+      const databaseZone = cloudDatabase.zone('default');
+      try {
+        for (let i = 0; i < this.productList.length; i++) {
+          const productPush = new order_product_list();
+          productPush.id = this.codeId + i;
+          productPush.order_product_id = this.codeId;
+          productPush.img = this.productList[i].productImgAddress;
+          productPush.price = this.productList[i].productPrice;
+          productPush.name = this.productList[i].productName;
+          productPush.originalPrice = this.productList[i].productOriginalPrice;
+          productPush.spec = this.productList[i].productSpecName;
+          productPush.buyAmount = this.productList[i].buyAmount;
+          const num = await databaseZone.upsert(productPush);
+          hilog.info(0x0000, 'testTag', `Succeeded in upserting data, result: ${num}`);
+        }
+      } catch (e) {
+        hilog.info(0x0000, 'testTag', `Upsert failed, error: ${e}`);
+      }
+
+      const orderPush = new order_list();
+      orderPush.id = Math.floor(Math.random() * 1000000);
+      orderPush.user_id = this.user!.user_id;
+      orderPush.order_product_id = String(this.codeId);
+      orderPush.order_code = this.generateOrderNo(10);
+      orderPush.order_status = 0;
+      if (this.remark !== '') {
+        orderPush.order_remark = this.remark;
+      }
+      orderPush.address = this.addressInfo.address;
+      orderPush.nickname = this.addressInfo.nikeName;
+      orderPush.phone = this.addressInfo.phone;
+      orderPush.order_create_time = this.formatCurrentDate();
+      orderPush.order_pay_time = this.formatCurrentDate();
+      const num = await databaseZone.upsert(orderPush);
+      hilog.info(0x0000, 'testTag', `Succeeded in upserting data, result: ${num}`);
+      if (num > 0) {
+        for (let i = 0; i < this.productList.length; i++) {
+          if (this.productList[i].isNeedPay) {
+            const item = new cart_product_list();
+            item.id = this.productList[i].id;
+            const listData = await databaseZone.delete(item);
+            hilog.info(0x0000, 'testTag', `Deletion result: ${listData}`);
+          }
+        }
+        const eventData: emitter.EventData = { data: {} };
+        const innerEvent: emitter.InnerEvent = { eventId: 1012, priority: emitter.EventPriority.HIGH };
+        emitter.emit(innerEvent, eventData);
+        router.replaceUrl({ url: 'pages/view/OrderSuccessPage', params: orderPush });
+      }
+    } else {
+      showToast("Please select an address first");
+    }
+  });
+Shopping Cart Page
+typescript
+@Link @Watch("onListRefresh") listRefresh: boolean;
+
+async onListRefresh() {
+  const userInfo = await StorageUtils.getAll('user');
+  if (userInfo !== null) {
+    this.user = JSON.parse(userInfo);
+  }
+  if (this.currentIndexCheck === this.currentIndex) {
+    const condition = new cloudDatabase.DatabaseQuery(cart_product_list);
+    condition.equalTo("user_id", this.user?.user_id);
+    const listData = await databaseZone.query(condition);
+    const json = JSON.stringify(listData);
+    this.productList = JSON.parse(json);
+    hilog.info(0x0000, 'testTag', `Query result: ${listData}`);
+    this.getCountPrice();
+    this.flag = true;
+  }
+}
+Home Page Reception
+typescript
+@State listRefresh: boolean = false;
+
+const innerEvent1: emitter.InnerEvent = { eventId: 1012 };
+
+const callback1: Callback<emitter.EventData> = async (eventData: emitter.EventData) => {
+  this.listRefresh = true;
+  const databaseZone = cloudDatabase.zone('default');
+  const condition = new cloudDatabase.DatabaseQuery(cart_product_list);
+  condition.equalTo("user_id", this.user?.user_id);
+  const listData = await databaseZone.query(condition);
+  this.badgeCount = listData.length;
+};
+emitter.on(innerEvent1, callback1);
+Adding New Products
+typescript
+Row() {
+  Text("Add to Cart")
+    .width('70%')
+    .borderRadius(30)
+    .textAlign(TextAlign.Center)
+    .fontColor(Color.Black)
+    .margin({ top: 70 })
+    .height(40)
+    .fontSize(18)
+    .fontWeight(FontWeight.Bold)
+    .backgroundColor("#FCDB29")
+    .onClick(async () => {
+      try {
+        const databaseZone = cloudDatabase.zone('default');
+        const condition = new cloudDatabase.DatabaseQuery(cart_product_list);
+        condition.equalTo("productId", this.product?.id).and().equalTo("productSpecId", this.specList[this.checkIndex].id);
+        const listData = await databaseZone.query(condition);
+        const json = JSON.stringify(listData);
+        hilog.info(0x0000, 'testTag', `Query result: ${json}`);
+        const request: CartProductList[] = JSON.parse(json);
+        const cartPush = new cart_product_list();
+
+        if (request.length > 0) {
+          const data: CartProductList = request[0];
+          cartPush.id = data.id;
+          cartPush.productId = data.productId; // Product ID
+          cartPush.productSpecId = data.productSpecId; // Specification ID
+          cartPush.productName = data.productName; // Product name
+          cartPush.productSpecName = data.productSpecName;
+          cartPush.productImgAddress = data.productImgAddress;
+          cartPush.buyAmount = this.addNumber + data.buyAmount; // Quantity
+          cartPush.isNeedPay = data.isNeedPay; // Whether selected, default true
+          cartPush.activityType = data.activityType; // Activity type (temporarily unused)
+          cartPush.productPrice = data.productPrice; // Price
+          cartPush.productOriginalPrice = data.productOriginalPrice; // Strikethrough price
+          cartPush.couponPrice = data.couponPrice;
+        } else {
+          cartPush.id = Math.floor(Math.random() * 1000000);
+          cartPush.productId = this.product!.id; // Product ID
+          cartPush.productSpecId = this.specList[this.checkIndex].id; // Specification ID
+          cartPush.productName = this.product!.name; // Product name
+          cartPush.productSpecName = this.specList[this.checkIndex].name;
+          cartPush.productImgAddress = this.product!.url; // Image address
+          cartPush.buyAmount = this.addNumber; // Quantity
+          cartPush.isNeedPay = true; // Whether selected, default true
+          cartPush.activityType = "1"; // Activity type (temporarily unused)
+          cartPush.productPrice = this.product!.price; // Price
+          cartPush.productOriginalPrice = this.product!.original_price; // Strikethrough price
+          cartPush.couponPrice = 0;
+          cartPush.user_id = this.user!.user_id;
+        }
+        const num = await databaseZone.upsert(cartPush);
+        hilog.info(0x0000, 'testTag', `Upsert result: ${num}`);
+        if (num > 0) {
+          showToast("Product added successfully");
+        }
+        const eventData: emitter.EventData = { data: {} };
+        const innerEvent: emitter.InnerEvent = { eventId: 1011, priority: emitter.EventPriority.HIGH };
+        emitter.emit(innerEvent, eventData);
+        this.controller.close();
+      } catch (err) {
+        hilog.info(0x0000, 'testTag', `Operation failed, error: ${err}`);
+      }
+    });
+}
+.width('100%')
+.justifyContent(FlexAlign.Center);
+
+
+
+The code has been executed, and the data is successfully displayed.
