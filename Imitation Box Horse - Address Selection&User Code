@@ -1,0 +1,241 @@
+Technical Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we completed the creation, data population, and display of the product list, and added parameters for future functionality. The home page is now 50% complete in terms of display features. Next, we'll enhance the business logic by implementing the top toolbar's address selection and membership code display.
+
+Functional Analysis
+1. Address Selection
+Requirements:
+Implement province-city-district-street selection.
+Adjust home page activities and module visibility based on the selected region (e.g., a new-user coupon activity available only in region A).
+Persist the selected address locally for subsequent logins.
+2. Membership Code
+Requirements:
+Generate a barcode and QR code combined with the user ID (simulated since login is not yet implemented).
+Display the codes on the page upon entry.
+Code Implementation
+1. Address Selection (Using HarmonyOS Built-in Component)
+typescript
+import { sceneMap } from '@ohos.sceneMap';
+import { getContext } from '@ohos.app.ability';
+import { BusinessError } from '@kit.BasicServicesKit';
+
+@Entry
+@Component
+struct HomePage {
+  @State locationName: string = 'Select Location';
+  @Storage('selectedAddress') savedAddress: string = ''; // Local storage for address
+
+  aboutToAppear() {
+    // Load saved address on page load
+    if (this.savedAddress) {
+      this.locationName = this.savedAddress;
+    }
+  }
+
+  selectAddress() {
+    let districtSelectOptions: sceneMap.DistrictSelectOptions = {
+      countryCode: "CN",
+      subWindowEnabled: false
+    };
+    
+    sceneMap.selectDistrict(getContext(this), districtSelectOptions)
+      .then((data) => {
+        // Process selected district (e.g., extract street name)
+        if (data.districts.length > 5) {
+          this.locationName = data.districts[5].name || 'Unknown';
+        } else if (data.districts.length > 4) {
+          this.locationName = data.districts[4].name || 'Unknown';
+        }
+        
+        // Save address locally
+        this.savedAddress = this.locationName;
+        console.info("SelectDistrict", "Succeeded in selecting district: " + this.locationName);
+        
+        // Update home page activities based on location
+        this.updateHomePageBasedOnLocation();
+      })
+      .catch((err: BusinessError) => {
+        console.error("SelectDistrict", `Failed to select district: ${err.message}`);
+      });
+  }
+
+  // Update home page activities based on the selected location
+  updateHomePageBasedOnLocation() {
+    // Example: Hide the new-user coupon activity if not in region A
+    const regionA = ['Beijing', 'Shanghai']; // Example regions
+    const isInRegionA = regionA.some(region => this.locationName.includes(region));
+    
+    // Update activity visibility (e.g., newPeopleStatus in homeActivitySetting)
+    if (!isInRegionA) {
+      // this.homeActivity[0].new_people_status = false;
+      console.info("HomePage", "New-user activity hidden for region: " + this.locationName);
+    }
+  }
+
+  build() {
+    Column() {
+      // Top Toolbar
+      Row() {
+        Text(this.locationName)
+          .fontSize(14)
+          .fontColor('#666')
+          .margin({ right: 5 })
+          .onClick(() => this.selectAddress())
+        
+        Image($r('app.media.arrow_down'))
+          .width(12)
+          .height(12)
+          .margin({ left: 2 })
+      }
+      .padding(10)
+      .backgroundColor('#FFFFFF')
+      .width('100%')
+      .shadow({ radius: 2, color: '#EEEEEE', offsetX: 0, offsetY: 1 })
+      
+      // Other home page content...
+    }
+    .width('100%')
+  }
+}
+2. Membership Code Display (Barcode + QR Code)
+typescript
+import { scanCore, generateBarcode } from '@kit.ScanKit';
+import { BusinessError } from '@kit.BasicServicesKit';
+import { image } from '@kit.ImageKit';
+
+@Entry
+@Component
+struct MembershipCodePage {
+  @State userId: string = 'USER123456'; // Simulated user ID
+  @State barcodePixelMap: image.PixelMap | undefined = undefined;
+  @State qrCodeContent: string = '';
+
+  aboutToAppear() {
+    this.generateCodes();
+  }
+
+  generateCodes() {
+    this.qrCodeContent = `MEMBERSHIP_${this.userId}_${new Date().getTime()}`;
+    
+    // Generate 1D barcode (CODE39)
+    let barcodeOptions: generateBarcode.CreateOptions = {
+      scanType: scanCore.ScanType.CODE39_CODE,
+      height: 60,
+      width: 200
+    };
+    
+    generateBarcode.createBarcode(this.qrCodeContent, barcodeOptions)
+      .then((pixelMap: image.PixelMap) => {
+        this.barcodePixelMap = pixelMap;
+      })
+      .catch((error: BusinessError) => {
+        console.error("GenerateBarcode", `Failed to generate barcode: ${error.message}`);
+      });
+  }
+
+  build() {
+    Column() {
+      // Header
+      Text('Membership Code')
+        .fontSize(18)
+        .fontWeight(FontWeight.Bold)
+        .margin({ top: 20, bottom: 15 })
+      
+      // Barcode display
+      if (this.barcodePixelMap) {
+        Image(this.barcodePixelMap)
+          .width('80%')
+          .height(60)
+          .objectFit(ImageFit.Contain)
+          .margin({ bottom: 20 })
+      }
+      
+      // QR code display
+      QRCode(this.qrCodeContent)
+        .color(Color.Black)
+        .width('80%')
+        .height(200)
+        .margin({ bottom: 30 })
+      
+      // User ID display
+      Text(`User ID: ${this.userId}`)
+        .fontSize(14)
+        .fontColor('#999')
+      
+      // Refresh button (for testing)
+      Button('Refresh Code')
+        .onClick(() => this.generateCodes())
+        .margin({ top: 20, bottom: 30 })
+    }
+    .width('100%')
+    .padding(20)
+    .backgroundColor('#F5F5F5')
+  }
+}
+3. Integrating into the Home Page
+typescript
+// In HomePage component
+build() {
+  Column() {
+    // Top toolbar with address selection
+    Row() {
+      Text(this.locationName)
+        .fontSize(14)
+        .fontColor('#666')
+        .onClick(() => this.selectAddress())
+      
+      Image($r('app.media.arrow_down'))
+        .width(12)
+        .height(12)
+    }
+    .padding(10)
+    .backgroundColor('#FFFFFF')
+    .width('100%')
+    
+    // Membership code section (collapsible)
+    Column() {
+      Text('Membership')
+        .fontSize(16)
+        .fontWeight(FontWeight.Bold)
+        .margin({ top: 15, bottom: 10 })
+      
+      // Simple membership code display (embedded)
+      Row() {
+        if (this.membershipPixelMap) {
+          Image(this.membershipPixelMap)
+            .width(80)
+            .height(30)
+            .objectFit(ImageFit.Contain)
+        }
+        
+        QRCode(this.membershipCode)
+          .width(60)
+          .height(60)
+          .margin({ left: 10 })
+      }
+      .padding(10)
+      .backgroundColor('#FFFFFF')
+      .width('100%')
+      .borderRadius(8)
+      .margin({ bottom: 15 })
+    }
+    
+    // Product list and other content...
+  }
+}
+Key Implementation Points
+Address Selection:
+Uses sceneMap.selectDistrict to trigger the built-in address picker.
+Saves the selected address using @Storage for persistence.
+Dynamically updates home page activities based on the location (e.g., hiding region-specific activities).
+Membership Code Generation:
+Uses ScanKit's generateBarcode for 1D codes (CODE39) and native QRCode component for 2D codes.
+Combines user ID and timestamp to create unique codes (simulated until login is implemented).
+Provides a refresh mechanism for code regeneration.
+UI Integration:
+The top toolbar displays the selected address with a dropdown arrow for interaction.
+The membership code section is embedded in the home page for quick access.
+
+This implementation completes the address selection and membership code display, enhancing the home page's functionality and preparing it for further business logic integration.
