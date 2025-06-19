@@ -1,0 +1,286 @@
+Technology Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we implemented the order remark pop-up dialog, submission of the order product list, and submission of the order list. However, we did not handle the business logic after submission. Which page should we enter after submitting an order? We need a transition page that provides more order-related entry points to help users confirm details or view order-related information.
+
+Functional Analysis
+To implement such a page:
+
+Obtain user information and the corresponding order ID to enter the order details page via a query button or entry.
+Include an address confirmation section to help users verify address accuracy.
+Provide an address modification interface to assist users in correcting incorrect addresses.
+
+Code Implementation
+First, implement the page redirection in the order submission button (to redirect after successful submission):
+
+typescript
+let num = await databaseZone.upsert(orderPush);
+if (num > 0) {
+  router.back({ url: 'pages/view/OrderSuccessPage', params: { status: true } });
+}
+
+Next, receive data on the order status page and display the order entry and current address information:
+
+typescript
+import { OrderList } from '../entity/OrderList';
+import showToast from '../utils/ToastUtils';
+import { router } from '@kit.ArkUI';
+import { CommonTopBar } from '../widget/CommonTopBar';
+
+@Entry
+@Component
+struct OrderSuccessPage {
+  @State orderInfo: OrderList | null = null;
+  @State addressSuccess: boolean = false;
+  @State isSuccess: boolean = false;
+
+  onPageShow(): void {
+    const params = (this.getUIContext().getRouter().getParams() as Record<string, boolean>)['status'];
+    if (params !== undefined) {
+      this.isSuccess = params;
+    }
+  }
+
+  aboutToAppear(): void {
+    const params = this.getUIContext().getRouter().getParams() as OrderList;
+    if (params !== null) {
+      this.orderInfo = params;
+    }
+  }
+
+  build() {
+    Column() {
+      CommonTopBar({ title: "Order Status", alpha: 0, titleAlignment: TextAlign.Center, backButton: true });
+      Column({ space: 15 }) {
+        Row({ space: 10 }) {
+          Image($r('app.media.order_success'))
+            .height(30)
+            .width(30);
+          Text("Order Placed Successfully!")
+            .fontSize(24)
+            .fontColor(Color.Black)
+            .fontWeight(FontWeight.Bold);
+        }
+        Text("Your package is preparing for shipment. Please keep your contact information unblocked～～")
+          .fontSize(16)
+          .fontColor(Color.Black);
+        Text("View Order")
+          .fontSize(16)
+          .fontColor(Color.Black)
+          .padding(10)
+          .borderRadius(10)
+          .border({ width: 1, color: Color.Grey })
+          .onClick(() => {
+            showToast("Order Number: " + this.orderInfo!.order_code);
+          });
+      }
+      .padding(30);
+
+      Column({ space: 10 }) {
+        Text("Shipping Address")
+          .fontSize(16)
+          .fontColor(Color.Black);
+        Row() {
+          Text(this.orderInfo?.nickname)
+            .fontColor(Color.Black)
+            .fontSize(16)
+            .fontWeight(FontWeight.Bold);
+          Text(this.orderInfo?.phone)
+            .fontColor(Color.Black)
+            .fontSize(16)
+            .fontWeight(FontWeight.Bold)
+            .margin({ left: 20 });
+        }
+        Text(this.orderInfo?.address)
+          .fontColor(Color.Black)
+          .fontSize(16);
+        Row({ space: 10 }) {
+          Text();
+          Blank();
+          Text("Modify Address")
+            .fontSize(14)
+            .fontColor(Color.Black)
+            .padding(5)
+            .borderRadius(5)
+            .border({ width: 1, color: Color.Grey })
+            .visibility(this.addressSuccess ? Visibility.None : Visibility.Visible)
+            .onClick(() => {
+              router.pushUrl({ url: 'pages/view/EditOrderAddressPage', params: { info: JSON.stringify(this.orderInfo) } });
+            });
+          Text("Confirm Address")
+            .fontSize(14)
+            .fontColor(Color.Black)
+            .padding(5)
+            .borderRadius(5)
+            .backgroundColor(Color.White)
+            .onClick(() => {
+              this.addressSuccess = true;
+            });
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.SpaceBetween);
+      }
+      .backgroundColor("#fff6db95")
+      .padding(20)
+      .width('90%')
+      .borderRadius(10)
+      .alignItems(HorizontalAlign.Start);
+    }
+    .backgroundColor(Color.White)
+    .height('100%')
+    .width('100%');
+  }
+}
+
+Define a variable to control the visibility of the modify address button:
+
+typescript
+@State addressSuccess: boolean = false;
+
+// Related code to hide the modify button after confirmation
+.visibility(this.addressSuccess ? Visibility.None : Visibility.Visible);
+
+When modifying the address, navigate to the edit page and receive the order data:
+
+typescript
+import { OrderList } from '../entity/OrderList';
+import { router } from '@kit.ArkUI';
+import { AddressList } from '../entity/AddressList';
+import { cloudDatabase } from '@kit.CloudFoundationKit';
+import { order_list } from '../clouddb/order_list';
+import { CommonTopBar } from '../widget/CommonTopBar';
+
+@Entry
+@Component
+struct EditOrderAddressPage {
+  @State orderInfo: OrderList | null = null;
+  @State addressInfo: AddressList | null = null;
+
+  aboutToAppear(): void {
+    const params = (this.getUIContext().getRouter().getParams() as Record<string, string>)['info'];
+    if (params !== null && params !== undefined) {
+      this.orderInfo = JSON.parse(params);
+    }
+  }
+
+  onPageShow(): void {
+    const params = (this.getUIContext().getRouter().getParams() as Record<string, string>)['address'];
+    if (params !== '' && params !== undefined) {
+      this.addressInfo = JSON.parse(params);
+    }
+  }
+
+  build() {
+    Column() {
+      CommonTopBar({ title: "Modify Order Address", alpha: 0, titleAlignment: TextAlign.Center, backButton: true });
+      Row({ space: 15 }) {
+        Image($r('app.media.edit_address_notice'))
+          .height(15)
+          .width(15);
+        Text("Notice: Address can only be modified once. Please modify carefully!")
+          .fontSize(14)
+          .fontColor(Color.Black);
+      }
+      .width('100%')
+      .height(50)
+      .alignItems(VerticalAlign.Center)
+      .padding(10)
+      .backgroundColor("#ffe7bdbd");
+
+      Column({ space: 20 }) {
+        Column({ space: 10 }) {
+          Text("Original Address")
+            .fontColor(Color.Black)
+            .fontSize(14);
+          Row() {
+            Text(this.orderInfo?.nickname)
+              .fontColor(Color.Black)
+              .fontSize(14);
+            Text(this.orderInfo?.phone)
+              .fontColor(Color.Black)
+              .fontSize(14);
+          }
+          Text(this.orderInfo?.address)
+            .fontColor(Color.Black)
+            .fontSize(14);
+        }
+        .borderRadius(10)
+        .alignItems(HorizontalAlign.Start)
+        .width('80%')
+        .padding(10)
+        .backgroundColor(Color.Pink);
+
+        Column({ space: 10 }) {
+          Row() {
+            Text("New Address")
+              .fontColor(Color.Black)
+              .fontSize(14);
+            Text("Select Address >")
+              .fontColor(Color.Black)
+              .fontSize(14)
+              .onClick(() => {
+                router.pushUrl({ url: 'pages/view/AddressListPage', params: { edit_status: true } });
+              });
+          }
+          .width('100%')
+          .justifyContent(FlexAlign.SpaceBetween);
+          Row() {
+            Text(this.addressInfo?.nikeName)
+              .fontColor(Color.Black)
+              .fontSize(14);
+            Text(this.addressInfo?.phone)
+              .fontColor(Color.Black)
+              .fontSize(14);
+          }
+          Text(this.addressInfo?.address)
+            .fontColor(Color.Black)
+            .fontSize(14);
+        }
+        .alignItems(HorizontalAlign.Start)
+        .width('80%')
+        .padding(10)
+        .backgroundColor(Color.Pink)
+        .borderRadius(10);
+      }
+      .margin({ top: 20 })
+      .layoutWeight(1);
+
+      Text("Submit Modification")
+        .fontColor(Color.Black)
+        .width('80%')
+        .height(50)
+        .backgroundColor(Color.Pink)
+        .textAlign(TextAlign.Center)
+        .margin({ bottom: 20 })
+        .borderRadius(10)
+        .onClick(async () => {
+          const databaseZone = cloudDatabase.zone('default');
+          const orderPush = new order_list();
+          orderPush.id = this.orderInfo!.id;
+          orderPush.user_id = this.orderInfo!.user_id;
+          orderPush.order_product_id = this.orderInfo!.order_product_id;
+          orderPush.order_code = this.orderInfo!.order_code;
+          orderPush.order_status = this.orderInfo!.order_status;
+          orderPush.order_remark = this.orderInfo!.order_remark;
+          orderPush.address = this.addressInfo!.address;
+          orderPush.nickname = this.addressInfo!.nikeName;
+          orderPush.phone = this.addressInfo!.phone;
+          orderPush.order_create_time = this.orderInfo!.order_create_time;
+          orderPush.order_pay_time = this.orderInfo!.order_pay_time;
+          const num = await databaseZone.upsert(orderPush);
+          if (num > 0) {
+            router.back({ url: 'pages/view/OrderSuccessPage', params: { status: true } });
+          }
+        });
+    }
+    .backgroundColor(Color.White)
+    .height('100%')
+    .width('100%');
+  }
+}
+
+
+
+
+The main functions for address modification are now implemented, with details to be polished in subsequent iterations.
