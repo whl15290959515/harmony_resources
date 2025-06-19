@@ -1,0 +1,82 @@
+Technology Stack
+Appgallery Connect
+
+Development Preparation
+As the app gradually improves, we now need to polish more details. We have added many static buttons and components on the home page, and now we start to add functions to these components. The first function to implement is the scan feature at the top of the home page, which will redirect to the product details page after scanning a code.
+
+Functional Analysis
+To implement the scanning feature, we have two options: zxing and scankit. We choose scankit because it optimizes recognition for various complex scanning scenarios, improving scanning success rate and user experience, reducing the amount of content we need to handle. The main content we scan is the product ID. By scanning the QR code corresponding to the product ID, we carry the ID to the corresponding product details page and query the corresponding product details for display.
+
+Code Implementation
+First, add an event callback to the QR code scanning button:
+
+typescript
+private onSearchClick?: () => void;
+Image($r('app.media.scan'))
+  .width(24)
+  .height(24)
+  .margin({ left: 12 })
+  .onClick(() => {
+    this.onSearchClick!();
+  });
+
+Then, invoke Scankit where the component is referenced:
+
+typescript
+CommonSearchBar({ onSearchClick: () => {
+  const options: scanBarcode.ScanOptions = {
+    scanTypes: [scanCore.ScanType.ALL],
+    enableMultiMode: true,
+    enableAlbum: true
+  };
+  try {
+    scanBarcode.startScanForResult(getContext(this), options).then((result: scanBarcode.ScanResult) => {
+      hilog.info(0x0001, '[Scan CPSample]', `Succeeded in getting ScanResult by promise with options, result is ${JSON.stringify(result)}`);
+      if (result.originalValue !== null) {
+        const product: ProductDetailModel = {
+          id: Number(result.originalValue)
+        };
+        router.pushUrl({
+          url: 'pages/component/ProductDetailsPage',
+          params: product
+        }, (err) => {
+          if (err) {
+            console.error(`Invoke pushUrl failed, code is ${err.code}, message is ${err.message}`);
+            return;
+          }
+          console.info('Invoke pushUrl succeeded.');
+        });
+      }
+    }).catch((error: BusinessError) => {
+      hilog.error(0x0001, '[Scan CPSample]', 
+        `Failed to get ScanResult by promise with options. Code:${error.code}, message: ${error.message}`);
+    });
+  } catch (error) {
+    hilog.error(0x0001, '[Scan CPSample]', 
+      `Failed to start the scanning service. Code:${error.code}, message: ${error.message}`);
+  }
+}})
+
+In the callback, we obtain the scanned content and pass it to the product details page:
+
+typescript
+// First, create an entity to pass parameters
+export class ProductDetailModel {
+  id: number = 0;
+}
+
+// The product details page queries the corresponding product based on the obtained ID
+const databaseZone = cloudDatabase.zone('default');
+const product = await router.getParams() as ProductDetailModel;
+console.info('Received params:', product);
+const condition1 = new cloudDatabase.DatabaseQuery(home_product_list);
+condition1.equalTo("id", product.id);
+const productDetail = await databaseZone.query(condition1);
+const json = JSON.stringify(productDetail);
+const list: HomeProductList[] = JSON.parse(json);
+this.productParams = list[0];
+hilog.error(0x0000, 'testTag', `Failed to query data, code: ${this.productParams}`);
+
+
+
+Executing the code shows the effect of scankit, implementing the function of scanning to enter the product details page.
