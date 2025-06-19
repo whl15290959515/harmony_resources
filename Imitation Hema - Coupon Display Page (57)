@@ -1,0 +1,156 @@
+Technical Stack
+Appgallery connect
+
+Development Preparation
+In the previous section, we implemented the coupon redemption function and successfully queried coupon information from the cloud. Now we need to create a coupon display page to show users the coupons under their current account, helping them make better purchasing decisions. Since coupons can have multiple statuses, we also need to handle the distinction between different statuses during display.
+
+Functional Analysis
+To implement the coupon display, we first need to get the currently logged-in user. Since we recorded the user ID when redeeming coupons, we'll query coupons based on this user ID. When the page loads, we'll fetch the corresponding coupon data from the cloud and display it in a list.
+
+Code Implementation
+First, add a top bar to the newly created coupon display page:
+
+
+CommonTopBar({ title: "Coupons", alpha: 0, titleAlignment: TextAlign.Center ,backButton:true})
+
+Retrieve the currently stored user information:
+
+
+@State user: User|null=null
+const value = await StorageUtils.getAll('user');
+if (value != "") {
+  this.user=JSON.parse(value)
+}
+
+Query the corresponding coupon list based on the current user ID:
+
+
+@State couponList:CouponMall[]=[]
+
+let databaseZone = cloudDatabase.zone('default');
+let condition = new cloudDatabase.DatabaseQuery(coupon_mall);
+condition.equalTo("user_id",this.user?.user_id)
+let listData = await databaseZone.query(condition);
+let json = JSON.stringify(listData)
+let data:CouponMall[]= JSON.parse(json)
+this.couponList=data
+
+After retrieving the data, add a list component:
+
+
+List({space:10}){
+  ForEach(this.couponList,(item:CouponMall,index:number)=>{
+    ListItem(){
+      // Item content will be defined using @Builder
+    }
+  })
+}
+.padding(10)
+
+Define the item layout using @Builder:
+
+
+@Builder
+Item(item:CouponMall){
+  Column({space:10}){
+    Row({space:10}){
+      Column(){
+        Text("¥"+item.price)
+          .fontSize(30)
+          .fontColor(Color.Red)
+          .fontWeight(FontWeight.Bold)
+        Text("Minimum spend: ¥"+item.limit_amount)
+          .fontColor(Color.Red)
+          .fontWeight(FontWeight.Bold)
+          .fontSize(12)
+      }
+
+      Column({space:10}){
+        Text(item.type_str)
+          .fontColor(Color.Black)
+          .fontWeight(FontWeight.Bold)
+          .fontSize(16)
+
+        Text(item.txt)
+          .fontColor(Color.Grey)
+          .fontSize(12)
+      }
+      Blank()
+      Text(this.getStatusText(item))
+        .width(80)
+        .height(80)
+        .borderRadius(40)
+        .fontSize(14)
+        .textAlign(TextAlign.Center)
+        .fontColor(this.getStatusColor(item))
+        .backgroundColor(this.getStatusBgColor(item))
+    }
+    .width('100%')
+    .justifyContent(FlexAlign.SpaceBetween)
+    Divider().width('100%').height(0.8)
+      .color("#e6e6e6")
+    Text("Valid from "+item.start_time+" to "+item.end_time)
+      .fontSize(12)
+      .fontColor(Color.Grey)
+  }.padding(10)
+  .backgroundColor(Color.White)
+  .borderRadius(10)
+}
+
+// Helper methods to determine status text and colors
+getStatusText(item: CouponMall): string {
+  const now = new Date();
+  const endDate = new Date(item.end_time);
+  const startDate = new Date(item.start_time);
+  
+  if (now < startDate) {
+    return "Upcoming";
+  } else if (now > endDate) {
+    return "Expired";
+  } else {
+    return "Available";
+  }
+}
+
+getStatusColor(item: CouponMall): ResourceStr {
+  const now = new Date();
+  const endDate = new Date(item.end_time);
+  const startDate = new Date(item.start_time);
+  
+  if (now < startDate) {
+    return "#007DFF"; // Blue for upcoming
+  } else if (now > endDate) {
+    return "#888888"; // Grey for expired
+  } else {
+    return Color.White; // White for available (on red background)
+  }
+}
+
+getStatusBgColor(item: CouponMall): ResourceStr {
+  const now = new Date();
+  const endDate = new Date(item.end_time);
+  const startDate = new Date(item.start_time);
+  
+  if (now < startDate) {
+    return "#E6F4FF"; // Light blue for upcoming
+  } else if (now > endDate) {
+    return "#F5F5F5"; // Light grey for expired
+  } else {
+    return Color.Red; // Red for available
+  }
+}
+
+Reference the item layout in the ListItem:
+
+
+List({space:10}){
+  ForEach(this.couponList,(item:CouponMall,index:number)=>{
+    ListItem(){
+      this.Item(item)
+    }
+  })
+}
+.padding(10)
+
+
+Execute the code to view the display effect of the current coupon list.
