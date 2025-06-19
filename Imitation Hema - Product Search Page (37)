@@ -1,0 +1,201 @@
+Technology Stack
+Appgallery Connect
+
+Development Preparation
+As development progresses, our application is gradually approaching completion. We now need to continue adding corresponding functions to unused buttons and components on the home page. In this section, we will implement a product search page, starting from the top down: first, a search bar, followed by a system-recommended list of popular searches.
+
+Functional Analysis
+Implementing the top search bar is relatively simple—we only need to use the corresponding Row layout to populate the components and show/hide them based on the input status. For the popular search list, we need to create a corresponding table in the cloud, populate the data, and then request data from the cloud database.
+
+Code Implementation
+Create the Corresponding Table
+{
+  "objectTypeName": "search_hot_txt",
+  "fields": [
+    {"fieldName": "id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "txt", "fieldType": "String" }
+  ],
+  "indexes": [
+    {"indexName": "field1Index", "indexList": [{"fieldName":"id","sortType":"ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+Corresponding Entity Class
+
+class SearchHotTxt {
+    id: number;
+    txt: string;
+
+    constructor() {
+    }
+
+    getFieldTypeMap():  Map<string, string> {
+        let fieldTypeMap = new Map<string, string>();
+        fieldTypeMap.set('id', 'Integer');
+        fieldTypeMap.set('txt', 'String');
+        return fieldTypeMap;
+    }
+
+    getClassName(): string {
+        return 'search_hot_txt';
+    }
+
+    getPrimaryKeyList(): string[] {
+        let primaryKeyList: string[] = [];
+        primaryKeyList.push('id');
+        return primaryKeyList;
+    }
+
+    getIndexList(): string[] {
+        let indexList: string[] = [];
+        indexList.push('id');
+        return indexList;
+    }
+
+    getEncryptedFieldList(): string[] {
+        let encryptedFieldList: string[] = [];
+        return encryptedFieldList;
+    }
+
+    setId(id: number): void {
+        this.id = id;
+    }
+
+    getId(): number  {
+        return this.id;
+    }
+
+    setTxt(txt: string): void {
+        this.txt = txt;
+    }
+
+    getTxt(): string  {
+        return this.txt;
+    }
+
+    static parseFrom(inputObject: any): SearchHotTxt {
+        let result = new SearchHotTxt();
+        if (!inputObject) {
+            return result;
+        }
+        if (inputObject.id) {
+            result.id = inputObject.id;
+        }
+        if (inputObject.txt) {
+            result.txt = inputObject.txt;
+        }
+        return result;
+    }
+}
+
+export { SearchHotTxt };
+Corresponding DB Class
+
+import { cloudDatabase } from '@kit.CloudFoundationKit';
+
+class search_hot_txt extends cloudDatabase.DatabaseObject {
+  public id: number;
+  public txt: string;
+
+  public naturalbase_ClassName(): string {
+    return 'search_hot_txt';
+  }
+}
+
+export { search_hot_txt };
+Create the Product Search Page and Implement the Bar
+
+// Create corresponding variables first
+@State text: string = ''
+controller: TextInputController = new TextInputController()
+@State searchTxt: SearchHotTxt[] = []
+@State flag: boolean = false
+@State isSearch: boolean = false
+@State columns: number = 2
+Implement the Layout
+
+Row() {
+    Image($r('app.media.left_back'))
+      .height(20)
+      .width(20)
+      .onClick(() => {
+        router.back()
+      })
+
+    TextInput({ text: this.text, placeholder: 'Input product name to search', controller: this.controller })
+      .placeholderColor(Color.White)
+      .placeholderFont({ size: 16, weight: 400 })
+      .caretColor(Color.White)
+      .width(200)
+      .fontSize(16)
+      .fontColor(Color.White)
+      .onChange((value: string) => {
+          this.text = value
+        if (value.length === 0) {
+          this.isSearch = false
+        }
+      })
+    Text("Search")
+      .border({width: 1, radius: 10, color: Color.White})
+      .fontSize(14)
+      .fontColor("#ffffff")
+      .padding({left: 13, right: 13, top: 5, bottom: 5})
+      .borderRadius(10)
+      .onClick(async () => {
+        if (this.text.trim() === '' && this.text.length === 0) {
+          this.isSearch = false
+          showToast("Search content cannot be empty")
+        } else {
+            this.isSearch = true
+        }
+      })
+
+}
+.justifyContent(FlexAlign.SpaceBetween)
+.width('100%')
+.padding({top: 10, bottom: 10, left: 15, right: 15})
+.expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
+.backgroundColor("#ff0000")
+Query Corresponding Data from the Cloud Database
+
+async aboutToAppear(): Promise<void> {
+    const history = await StorageUtils.getAll("history_list")
+    if (history !== '' && history !== undefined) {
+      this.searchHistoryList = JSON.parse(history)
+    }
+    let condition = new cloudDatabase.DatabaseQuery(search_hot_txt);
+    let listData = await databaseZone.query(condition);
+    let json = JSON.stringify(listData)
+    let data1: SearchHotTxt[] = JSON.parse(json)
+    this.searchTxt = data1
+    this.flag = true
+  }
+Display the Search List
+
+Text("Popular Searches")
+  .width('100%')
+  .fontSize(16)
+  .fontColor("#000000")
+  .fontWeight(FontWeight.Bold)
+  .padding({left: 15, top: 15}) 
+
+Flex({wrap: FlexWrap.Wrap}) {
+    ForEach(this.searchTxt, (item: SearchHotTxt, index: number) => {
+      Text(item.txt)
+        .backgroundColor("#ffe7e5e5")
+        .fontColor("#000000")
+        .fontWeight(FontWeight.Bold)
+        .fontSize(16)
+        .padding(10)
+        .margin({top: 10, left: 10})
+        .borderRadius(5)
+        .onClick(() => {
+          this.text = item.txt
+        })
+    })
+}
