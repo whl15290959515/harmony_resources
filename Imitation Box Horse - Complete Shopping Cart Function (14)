@@ -1,0 +1,153 @@
+Technology Stack
+AppGallery Connect
+
+Development Preparation
+In the previous section, we implemented status toggling for cart items, quantity adjustment, swipe-to-delete functionality, and price calculation for selected products. This section focuses on cloud synchronization to ensure cart data persists across devices and sessions. Currently, only data queries are fetched from the cloud. Other operations (e.g., selection, deletion) work locally but do not retain changes when the app is restarted or used on another device. Storing data locally (e.g., preferences or local databases) cannot solve cross-device synchronization. Therefore, we'll submit all operations to the cloud to maintain consistent cart states across devices, app restarts, and user account switches.
+
+Functional Analysis
+
+Product Selection
+Maintain the isNeedPay status rendering logic from the previous section.
+Use upsert to update cloud data, ensuring selections persist.
+Quantity Adjustment
+Update the buyAmount field locally as before.
+Use upsert to synchronize quantity changes to the cloud database.
+Product Deletion
+Replace the local splice deletion with the cloud database's delete function to ensure permanent removal.
+Add missing price calculation after deletion to keep totals accurate.
+Price Calculation
+No changes needed; continue calculating based on selected items.
+
+Code Implementation
+
+1. Selection Toggle with Cloud Sync
+
+typescript
+let cartPush = new cart_product_list();
+let data: CartProductList = item;
+cartPush.id = data.id;
+cartPush.productId = data.productId; // Product ID
+cartPush.productSpecId = data.productSpecId; // Specification ID
+cartPush.productName = data.productName; // Product name
+cartPush.productSpecName = data.productSpecName;
+cartPush.productImgAddress = data.productImgAddress;
+cartPush.buyAmount = data.buyAmount; // Quantity
+cartPush.activityType = data.activityType; // Activity type (not used)
+cartPush.productPrice = data.productPrice; // Price
+cartPush.productOriginalPrice = data.productOriginalPrice; // Original price
+cartPush.couponPrice = data.couponPrice;
+
+if (item.isNeedPay) {
+  item.isNeedPay = false;
+  this.productList[index] = new CartProductList(
+    item.id, item.productId, item.productSpecId, item.productName, item.productSpecName,
+    item.buyAmount, item.isNeedPay, item.activityType, item.productImgAddress,
+    item.productOriginalPrice, item.productPrice, item.couponPrice
+  );
+  cartPush.isNeedPay = false;
+} else {
+  item.isNeedPay = true;
+  this.productList[index] = new CartProductList(
+    item.id, item.productId, item.productSpecId, item.productName, item.productSpecName,
+    item.buyAmount, item.isNeedPay, item.activityType, item.productImgAddress,
+    item.productOriginalPrice, item.productPrice, item.couponPrice
+  );
+  cartPush.isNeedPay = true;
+}
+
+let num = await databaseZone.upsert(cartPush);
+hilog.info(0x0000, 'TAG', `Data updated: ${num} records`);
+this.getCountPrice();
+
+2. Decrease Quantity with Cloud Sync
+
+typescript
+if (item.buyAmount === 1) {
+  showToast("Minimum quantity reached");
+} else {
+  item.buyAmount--;
+
+  let cartPush = new cart_product_list();
+  let data: CartProductList = item;
+  cartPush.id = data.id;
+  cartPush.productId = data.productId;
+  cartPush.productSpecId = data.productSpecId;
+  cartPush.productName = data.productName;
+  cartPush.productSpecName = data.productSpecName;
+  cartPush.productImgAddress = data.productImgAddress;
+  cartPush.buyAmount = item.buyAmount;
+  cartPush.activityType = data.activityType;
+  cartPush.productPrice = data.productPrice;
+  cartPush.productOriginalPrice = data.productOriginalPrice;
+  cartPush.couponPrice = data.couponPrice;
+  cartPush.isNeedPay = data.isNeedPay;
+
+  let num = await databaseZone.upsert(cartPush);
+  hilog.info(0x0000, 'TAG', `Data updated: ${num} records`);
+
+  this.productList[index] = new CartProductList(
+    item.id, item.productId, item.productSpecId, item.productName, item.productSpecName,
+    item.buyAmount, item.isNeedPay, item.activityType, item.productImgAddress,
+    item.productOriginalPrice, item.productPrice, item.couponPrice
+  );
+  this.getCountPrice();
+}
+
+3. Increase Quantity with Cloud Sync
+
+typescript
+item.buyAmount++;
+
+let cartPush = new cart_product_list();
+let data: CartProductList = item;
+cartPush.id = data.id;
+cartPush.productId = data.productId;
+cartPush.productSpecId = data.productSpecId;
+cartPush.productName = data.productName;
+cartPush.productSpecName = data.productSpecName;
+cartPush.productImgAddress = data.productImgAddress;
+cartPush.buyAmount = item.buyAmount;
+cartPush.activityType = data.activityType;
+cartPush.productPrice = data.productPrice;
+cartPush.productOriginalPrice = data.productOriginalPrice;
+cartPush.couponPrice = data.couponPrice;
+cartPush.isNeedPay = data.isNeedPay;
+
+let num = await databaseZone.upsert(cartPush);
+hilog.info(0x0000, 'TAG', `Data updated: ${num} records`);
+
+this.productList[index] = new CartProductList(
+  item.id, item.productId, item.productSpecId, item.productName, item.productSpecName,
+  item.buyAmount, item.isNeedPay, item.activityType, item.productImgAddress,
+  item.productOriginalPrice, item.productPrice, item.couponPrice
+);
+this.getCountPrice();
+
+4. Delete Item with Cloud Sync
+
+typescript
+Button('Delete').margin(4)
+  .onClick(async () => {
+    try {
+      // Delete from cloud database
+      const condition = new cloudDatabase.DatabaseQuery(cart_product_list)
+        .equalTo("id", item.id);
+      const result = await databaseZone.delete(condition);
+      if (result > 0) {
+        // Remove from local list
+        let index = this.productList.indexOf(item);
+        this.productList.splice(index, 1);
+        this.getCountPrice(); // Update price calculation
+        showToast("Item deleted successfully");
+      }
+    } catch (err) {
+      hilog.error(0x0000, 'TAG', `Failed to delete item: ${err}`);
+      showToast("Failed to delete item");
+    }
+  });
+
+
+Final Notes
+The shopping cart is now fully functional with cloud synchronization. All operations (selection, quantity adjustment, deletion) are persisted in the cloud, ensuring consistent states across devices.
+
+PS: The cloud data submission code is highly repetitive. Interested developers may consider encapsulating these operations into reusable functions.
