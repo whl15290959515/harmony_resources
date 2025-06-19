@@ -1,0 +1,150 @@
+Technical Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we implemented address selection in the top toolbar and membership code display, completing the static layout of the home page. This section focuses on implementing click-to-pass values for product list items and a custom title bar.
+
+Functional Analysis
+1. Custom Title Bar
+When entering secondary or tertiary pages, a title bar is essential to introduce the current page and provide a clickable back button for navigation.
+The design must be versatile, supporting pages that may not require a back button.
+2. Inter-page Data Transfer
+Data passing between pages is a fundamental feature in apps. We will implement data transfer by clicking list items and receiving data on the detail page.
+
+Code Implementation
+1. Custom Title Bar Component (CommonTopBar.ets)
+typescript
+import router from '@ohos.router';
+
+@Component
+export struct CommonTopBar {
+  @Prop title: string;
+  @Prop alpha: number;
+  private titleAlignment: TextAlign = TextAlign.Center;
+  private backButton: boolean = true;
+  private onBackClick?: () => void;
+
+  build() {
+    Column() {
+      Blank()
+        .backgroundColor(Color.Red)
+        .opacity(this.alpha);
+      Stack({ alignContent: Alignment.Start }) {
+        Stack()
+          .height(50)
+          .width("100%")
+          .opacity(this.alpha)
+          .backgroundColor(Color.Red);
+        Flex({ direction: FlexDirection.Row, alignItems: ItemAlign.Center }) {
+          Text(this.title)
+            .flexGrow(1)
+            .textAlign(this.titleAlignment)
+            .fontSize(18)
+            .fontColor(Color.Black)
+            .align(Alignment.Center)
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis });
+        }
+        .height(50)
+        .margin({ left: 50, right: 50 })
+        .alignSelf(ItemAlign.Center);
+
+        if (this.backButton) {
+          Stack() {
+            Image($r('app.media.ic_back'))
+              .height(16)
+              .width(12)
+              .objectFit(ImageFit.Contain)
+              .align(Alignment.Center);
+          }
+          .onClick(() => {
+            this.onBackClick?.();
+            router.back();
+          })
+          .height(50)
+          .width(50);
+        }
+      }
+      .height(50)
+      .width("100%");
+      Divider().strokeWidth(0.5).color("#E6E6E6");
+    }
+    .backgroundColor(Color.White)
+    .height(51);
+  }
+}
+
+Key Features:
+
+Dynamically controls back button visibility with backButton prop.
+Accepts custom titles and alignment via @Prop parameters.
+Includes an optional callback onBackClick for extended navigation logic.
+2. Inter-page Data Transfer
+a. Product Details Page (ProductDetailsPage.ets)
+typescript
+import { CommonTopBar } from '../widget/CommonTopBar';
+import router from '@ohos.router';
+import { HomeProductList } from '../entity/home_product_list';
+
+@Entry
+@Component
+struct ProductDetailsPage {
+  @State receivedParams: HomeProductList = {} as HomeProductList;
+
+  aboutToAppear(): void {
+    const params = router.getParams() as HomeProductList;
+    if (params) {
+      this.receivedParams = params;
+      console.info('Received product params:', params);
+    }
+  }
+
+  build() {
+    Column() {
+      CommonTopBar({ 
+        title: "Product Details", 
+        alpha: 0, 
+        titleAlignment: TextAlign.Center, 
+        backButton: true 
+      });
+      
+      // Display received parameters
+      Text(JSON.stringify(this.receivedParams))
+        .fontSize(14)
+        .fontColor(Color.Black)
+        .margin(10);
+    }
+    .height('100%')
+    .width('100%');
+  }
+}
+b. Sending Data from Product List Item
+typescript
+// In WaterFlowGoods.ets (product list component)
+Image(item.url)
+  .width('100%')
+  .aspectRatio(1)
+  .objectFit(ImageFit.Cover)
+  .borderRadius({ topLeft: 10, topRight: 10 })
+  .onClick(() => {
+    router.pushUrl({
+      url: 'pages/component/ProductDetailsPage',
+      params: item  // Pass the entire item object
+    }, (err) => {
+      if (err) {
+        console.error(`Push URL failed: code=${err.code}, message=${err.message}`);
+        return;
+      }
+      console.info('Push URL succeeded');
+    });
+  });
+Implementation Highlights
+Custom Title Bar Flexibility:
+The title, transparency (alpha), and back button visibility are configurable via props, making it suitable for various pages.
+The back button uses router.back() to navigate to the previous page, with an optional callback for additional actions.
+Robust Data Transfer:
+The product list item sends the entire item object via router.pushUrl, preserving all product details.
+The details page retrieves parameters in aboutToAppear() to ensure data is available on page load.
+JSON serialization is used for displaying received data, aiding in debugging and verification.
+Next Steps
+The next section will focus on enriching the product details page with more features, such as image galleries, detailed descriptions, and purchase options, leveraging the data transferred from the product list.
