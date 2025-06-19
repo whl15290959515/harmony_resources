@@ -1,0 +1,212 @@
+Technical Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we implemented the display of pending pickup and cancelled order statuses, and successfully refreshed the order list after modifying the order status, achieving cloud data updates. In this section, we will implement the business logic for the remaining two sections of the order page: the "In Transit" and "Completed" status order list displays, as well as the functionality to modify order statuses.
+
+Function Analysis
+To implement the "In Transit" and "Completed" order statuses:
+
+Implement a component refresh method triggered when switching tabs, refreshing the current page based on the corresponding index.
+Query cloud database data in the refresh method and display it on the page, filtering orders by user_id and order_type.
+Allow modifying the status of clicked orders in different status tabs, updating both the local list and cloud order status.
+
+Code Implementation
+1. Implement the "In Transit" Page
+
+@State currentIndexCheck: number = 2
+@Prop @Watch("onRefresh") currentIndex: number = 0
+
+async onRefresh(): Promise<void> {
+  if (this.currentIndexCheck === this.currentIndex) {
+    let databaseZone = cloudDatabase.zone('default');
+    let condition = new cloudDatabase.DatabaseQuery(recycle_info);
+    condition.equalTo("user_id", this.user?.user_id).and().equalTo("order_type", 2);
+    let listData = await databaseZone.query(condition);
+    let json = JSON.stringify(listData);
+    let data1: RecycleInfo[] = JSON.parse(json);
+    this.orderList = data1;
+    this.flag = true;
+  }
+}
+
+Fetch cloud data using the refresh method, querying orders with order_type=2 (In Transit):
+
+
+List({space:10}){
+  ForEach(this.orderList,(item:RecycleInfo,index:number)=>{
+    ListItem(){
+      Column({space:10}){
+        Row(){
+          Text("Order Number: "+item.express_code)
+            .fontColor(Color.Black)
+            .fontSize(14)
+
+          Text("In Transit")
+            .fontColor(Color.Black)
+            .fontSize(14)
+        }
+        .justifyContent(FlexAlign.SpaceBetween)
+        .width('100%')
+
+        Row({space:10}){
+          Image($r('app.media.background'))
+            .height(40)
+            .width(40)
+            .borderRadius(5)
+
+          Column({space:10}){
+            Text("Recycling Category: Clothing, Shoes & Bags")
+              .fontColor(Color.Black)
+              .fontSize(14)
+
+            Text("Scheduled Time: "+item.create_time)
+              .fontColor(Color.Black)
+              .fontSize(14)
+
+            Text("Contact: "+item.phone)
+              .fontColor(Color.Black)
+              .fontSize(14)
+
+            Text("Pickup Address: "+item.address)
+              .fontColor(Color.Black)
+              .fontSize(14)
+          }.alignItems(HorizontalAlign.Start)
+        }
+        .margin({top:10})
+        .alignItems(VerticalAlign.Top)
+        .width('100%')
+        .justifyContent(FlexAlign.Start)
+
+        Row({space:10}){
+          Text()
+          Blank()
+          Text("Mark as Completed")
+            .fontColor(Color.Black)
+            .fontSize(12)
+            .padding(5)
+            .borderRadius(10)
+            .backgroundColor(Color.Pink)
+            .onClick(async () => {
+              // Update order status to "Completed" (3)
+              let data = new recycle_info();
+              data.id = item.id;
+              data.user_id = item.user_id;
+              data.nike_name = item.nike_name;
+              data.phone = item.phone;
+              data.address = item.address;
+              data.day = item.day;
+              data.start_time = item.start_time;
+              data.end_time = item.end_time;
+              data.msg = item.msg;
+              data.weight_id = item.weight_id;
+              data.create_time = item.create_time;
+              data.express_code = item.express_code;
+              data.express_people = item.express_people;
+              data.express_company = item.express_company;
+              data.order_type = 3; // Set status to "Completed"
+              data.logistics_id = item.logistics_id;
+              
+              let num = await databaseZone.upsert(data);
+              hilog.info(0x0000, 'testTag', `Succeeded in updating data, result: ${num}`);
+              
+              if (num > 0) {
+                this.onRefresh();
+                showToast("Order marked as completed");
+              }
+            })
+        }
+        .width('100%')
+      }
+      .padding(10)
+      .backgroundColor(Color.White)
+      .borderRadius(10)
+      .width('100%')
+      .justifyContent(FlexAlign.SpaceBetween)
+    }
+  })
+}
+2. Implement the "Completed" Page
+
+@State currentIndexCheck: number = 3
+@Prop @Watch("onRefresh") currentIndex: number = 0
+
+async onRefresh(): Promise<void> {
+  if (this.currentIndexCheck === this.currentIndex) {
+    let databaseZone = cloudDatabase.zone('default');
+    let condition = new cloudDatabase.DatabaseQuery(recycle_info);
+    condition.equalTo("user_id", this.user?.user_id).and().equalTo("order_type", 3);
+    let listData = await databaseZone.query(condition);
+    let json = JSON.stringify(listData);
+    let data1: RecycleInfo[] = JSON.parse(json);
+    this.orderList = data1;
+    this.flag = true;
+  }
+}
+
+Display completed orders (no status modification needed, just show data):
+
+
+List({space:10}){
+  ForEach(this.orderList,(item:RecycleInfo,index:number)=>{
+    ListItem(){
+      Column({space:10}){
+        Row(){
+          Text("Order Number: "+item.express_code)
+            .fontColor(Color.Black)
+            .fontSize(14)
+
+          Text("Completed")
+            .fontColor(Color.Black)
+            .fontSize(14)
+        }
+        .justifyContent(FlexAlign.SpaceBetween)
+        .width('100%')
+
+        Row({space:10}){
+          Image($r('app.media.background'))
+            .height(40)
+            .width(40)
+            .borderRadius(5)
+
+          Column({space:10}){
+            Text("Recycling Category: Clothing, Shoes & Bags")
+              .fontColor(Color.Black)
+              .fontSize(14)
+
+            Text("Scheduled Time: "+item.create_time)
+              .fontColor(Color.Black)
+              .fontSize(14)
+
+            Text("Contact: "+item.phone)
+              .fontColor(Color.Black)
+              .fontSize(14)
+
+            Text("Pickup Address: "+item.address)
+              .fontColor(Color.Black)
+              .fontSize(14)
+          }.alignItems(HorizontalAlign.Start)
+        }
+        .margin({top:10})
+        .alignItems(VerticalAlign.Top)
+        .width('100%')
+        .justifyContent(FlexAlign.Start)
+
+        Row({space:10}){
+          Text()
+          Blank()
+        }
+        .width('100%')
+      }
+      .padding(10)
+      .backgroundColor(Color.White)
+      .borderRadius(10)
+      .width('100%')
+      .justifyContent(FlexAlign.SpaceBetween)
+    }
+  })
+}
+.padding(10)
+
+
+This completes the implementation of all order status tabs and the ability to update order statuses between them.
