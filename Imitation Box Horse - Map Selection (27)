@@ -1,0 +1,140 @@
+Technology Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we implemented a simple map display. This section focuses on implementing current location functionality based on the map, POI (Point of Interest) address retrieval for the current location, list display, adding markers to the map, and showing the current location.
+
+Functional Analysis
+To implement these features:
+
+Acquire current coordinates before the map loads.
+Query nearby POI addresses using the coordinates.
+Display these POI addresses in a list.
+Calculate the straight-line distance from the current location to each address in the list.
+
+Code Implementation
+1. Adding Markers and Displaying the Current Location
+typescript
+private marker?: map.Marker;
+this.mapController = mapController;
+const location = await geoLocationManager.getCurrentLocation();
+this.mapController.setMyLocation(location);
+this.mapController.setMyLocationEnabled(true);
+this.mapController.setMyLocationControlsEnabled(true);
+
+this.mapEventManager = this.mapController.getEventManager();
+const markerOptions: mapCommon.MarkerOptions = {
+  position: {
+    latitude: location.latitude,
+    longitude: location.longitude
+  },
+  rotation: 0,
+  visible: true,
+  zIndex: 0,
+  alpha: 1,
+  anchorU: 0.5,
+  anchorV: 1,
+  clickable: true,
+  draggable: true,
+  flat: false
+};
+this.marker = await this.mapController.addMarker(markerOptions);
+this.marker!.setDraggable(false);
+this.marker!.setMarkerAnchor(1.0, 1.0);
+
+This implements map markers and current location display, with the blue location dot and marker successfully shown.
+2. Retrieving POI Addresses within a Range
+typescript
+private addressList: Array<site.Site> | null = null;
+@State infoIsSuccess: boolean = false;
+
+// POI query based on current coordinates
+const params: site.NearbySearchParams = {
+  location: {
+    latitude: location.latitude,
+    longitude: location.longitude
+  },
+  radius: 5000,
+  poiTypes: ["EATING_DRINKING", "SHOPPING", "LEISURE"],
+  language: "ch",
+  pageIndex: 1,
+  pageSize: 10
+};
+const result = await site.nearbySearch(params);
+this.addressList = result.sites!;
+if (result.sites!.length > 0) {
+  this.infoIsSuccess = true;
+} else {
+  this.infoIsSuccess = false;
+}
+3. Displaying POI Data in a List
+typescript
+List() {
+  ForEach(this.addressList, (item: site.Site, index: number) => {
+    ListItem() {
+      Column() {
+        Column({ space: 10 }) {
+          Text(item.name)
+            .fontColor(Color.Black)
+            .fontSize(16)
+            .fontWeight(FontWeight.Bold);
+          Row() {
+            Text(this.calculateDistance(
+              item.location?.latitude, item.location?.longitude,
+              this.location?.latitude, this.location?.longitude
+            ).toFixed(2) + " km")
+              .fontSize(14)
+              .fontColor(Color.Gray);
+            Text(" | ")
+              .fontSize(14)
+              .fontColor(Color.Gray);
+            Text(item.formatAddress)
+              .fontColor(Color.Gray)
+              .fontSize(14)
+              .textOverflow({ overflow: TextOverflow.Clip })
+              .maxLines(1);
+          }
+          .width('100%')
+          .justifyContent(FlexAlign.Start);
+        }
+        .alignItems(HorizontalAlign.Start)
+        .padding(10)
+        .justifyContent(FlexAlign.Center);
+        Divider().width('100%').height(0.8).color("#e6e6e6");
+      }
+      .onClick(() => {
+        showToast(JSON.stringify(item));
+      });
+    }
+  });
+}
+.layoutWeight(1)
+.backgroundColor(Color.White);
+4. Distance Calculation Function
+typescript
+toRadians(degree: number): number {
+  return degree * Math.PI / 180;
+}
+
+calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth's average radius in kilometers
+  const dLat = this.toRadians(lat2 - lat1);
+  const dLon = this.toRadians(lon2 - lon1);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(this.toRadians(lat1)) * Math.cos(this.toRadians(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = R * c;
+
+  return distance;
+}
+
+
+
+
+
+
+Executing the code now successfully displays the POI data with calculated distances from the current location.
