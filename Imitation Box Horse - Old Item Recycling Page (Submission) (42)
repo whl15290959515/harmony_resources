@@ -1,0 +1,161 @@
+Technical Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we implemented address selection, remarks, pickup time, and a static estimated weight list. Now we need to fetch the estimated weight data from the cloud to handle subsequent business logic and create recycling orders.
+
+Function Analysis
+To implement the estimated weight list:
+
+Create corresponding tables and data sources.
+Query weight data from the cloud when the page loads and display it in the UI.
+Create a recycling order by collecting data from the page and storing it in the order table.
+
+Code Implementation
+1. Create the Cloud Database Table (weight_info)
+
+{
+  "objectTypeName": "weight_info",
+  "fields": [
+    {"fieldName": "id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "weight_id", "fieldType": "Integer"},
+    {"fieldName": "weight", "fieldType": "String"},
+    {"fieldName": "txt", "fieldType": "String"},
+    {"fieldName": "integral", "fieldType": "Double"},
+    {"fieldName": "money", "fieldType": "Double"}
+  ],
+  "indexes": [
+    {"indexName": "field1IndexId", "indexList": [{"fieldName":"id","sortType":"ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+2. Create Entity and Database Classes
+
+// weight_info.ts
+import { cloudDatabase } from '@kit.CloudFoundationKit';
+
+class weight_info extends cloudDatabase.DatabaseObject {
+  public id: number;
+  public weight_id: number;
+  public weight: string;
+  public txt: string;
+  public integral: number;
+  public money: number;
+
+  public naturalbase_ClassName(): string {
+    return 'weight_info';
+  }
+}
+
+export { weight_info };
+
+
+// WeightInfo.ts (Entity Class)
+class WeightInfo {
+    id: number;
+    weight_id: number;
+    weight: string;
+    txt: string;
+    integral: number;
+    money: number;
+
+    constructor() {
+    }
+
+    // Get field type mappings for database operations
+    getFieldTypeMap():  Map<string, string> {
+        let fieldTypeMap = new Map<string, string>();
+        fieldTypeMap.set('id', 'Integer');
+        fieldTypeMap.set('weight_id', 'Integer');
+        fieldTypeMap.set('weight', 'String');
+        fieldTypeMap.set('txt', 'String');
+        fieldTypeMap.set('integral', 'Double');
+        fieldTypeMap.set('money', 'Double');
+        return fieldTypeMap;
+    }
+
+    // Other required methods for database interaction
+    getClassName(): string {
+        return 'weight_info';
+    }
+
+    getPrimaryKeyList(): string[] {
+        let primaryKeyList: string[] = [];
+        primaryKeyList.push('id');
+        return primaryKeyList;
+    }
+
+    // ... (other getter/setter and utility methods) ...
+}
+
+export { WeightInfo };
+3. Fetch Weight Data from Cloud on Page Load
+
+@State weightList: WeightInfo[] = [];
+@State weightInfo: WeightInfo | null = null;
+
+async aboutToAppear(): Promise<void> {
+    const value = await StorageUtils.getAll('user');
+    if (value != "") {
+      this.user = JSON.parse(value);
+    }
+    
+    // Query weight data from cloud database
+    let condition = new cloudDatabase.DatabaseQuery(weight_info);
+    let listData = await databaseZone.query(condition);
+    let json = JSON.stringify(listData);
+    let weightInfo: WeightInfo[] = JSON.parse(json);
+    this.weightList = weightInfo;
+    hilog.info(0x0000, 'testTag', `Succeeded in querying data, result: ${weightInfo}`);
+    this.flag = true;
+}
+4. Submit Recycling Order Data to Cloud
+
+Text("Book Collection")
+  .width('95%')
+  .height(45)
+  .fontSize(16)
+  .fontWeight(FontWeight.Bold)
+  .borderRadius(5)
+  .backgroundColor("#fff84f4f")
+  .textAlign(TextAlign.Center)
+  .margin({top:15})
+  .onClick(async () => {
+    // Create new recycling order object
+    let recyclePushInfo = new recycle_info();
+    recyclePushInfo.id = Math.floor(Math.random() * 1000000);
+    recyclePushInfo.user_id = this.user!.user_id;
+    recyclePushInfo.nike_name = this.addressInfo!.nikeName;
+    recyclePushInfo.phone = this.addressInfo!.phone;
+    recyclePushInfo.address = this.addressInfo!.address;
+    recyclePushInfo.day = this.formatCurrent();
+    recyclePushInfo.start_time = this.formatCurrentDate();
+    recyclePushInfo.end_time = this.formatCurrentEndDate();
+    recyclePushInfo.weight_id = String(this.weightInfo!.weight_id);
+    
+    if (this.remark != '') {
+      recyclePushInfo.msg = this.remark;
+    }
+    
+    // Set order metadata
+    recyclePushInfo.create_time = this.formatCurrentCreatTime();
+    recyclePushInfo.express_code = this.generate16DigitRandom();
+    recyclePushInfo.express_people = "Courier A San";
+    recyclePushInfo.express_company = "China Post (Default)";
+    recyclePushInfo.order_type = 0;
+    recyclePushInfo.logistics_id = 10;
+    
+    // Submit order to cloud database
+    let num = await databaseZone.upsert(recyclePushInfo);
+    hilog.info(0x0000, 'testTag', `Succeeded in upserting data, result: ${num}`);
+    
+    if (num > 0) {
+      showToast("Order placed successfully");
+    }
+  })
+
