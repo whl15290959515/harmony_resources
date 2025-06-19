@@ -1,0 +1,104 @@
+Technology Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we implemented the top navigation bar list for the category page and achieved linkage between the diamond zone on the home page and the navigation bar. This section focuses on implementing a pop-up window function for the navigation bar list, requiring knowledge of custom pop-ups and maintaining data source consistency with the category page.
+
+Functional Analysis
+1. Pop-up Window
+
+Implement a custom pop-up window with synchronized data on creation.
+Pass the current index to the pop-up when opening it, maintaining selection state consistency.
+When selecting a category in the pop-up, synchronize the switch in the external list and ensure the selected item is centered in the list.
+
+Code Implementation
+Pop-up Creation, Data Passing, and Callback Handling
+typescript
+@Link select: number;
+@Link dataSource: SplitLayoutModel[];
+onItemSelected: (item: number) => void = () => {};
+controller: CustomDialogController;
+
+Pop-up Layout and Logic
+typescript
+build() {
+  Column() {
+    Text('All Categories')
+      .fontSize(14)
+      .margin(12)
+      .width('100%')
+      .textAlign(TextAlign.Start)
+      .fontColor(Color.Black);
+
+    Grid() {
+      ForEach(this.dataSource, (item: SplitLayoutModel, index: number) => {
+        GridItem() {
+          Column() {
+            // Image section
+            Image(item.url)
+              .width(40)
+              .height(40)
+              .borderRadius(20)
+              .border({ width: this.select === index ? 2 : 0, color: "#409EFF" });
+
+            // Text section
+            Text(item.txt)
+              .textAlign(TextAlign.Center)
+              .fontColor(Color.Black)
+              .fontSize(10)
+              .padding(2)
+              .margin({ top: 5 })
+              .fontColor(this.select === index ? "#FFFFFF" : "#000000")
+              .backgroundColor(this.select === index ? '#409EFF' : '#FFFFFF')
+              .borderRadius(this.select === index ? 15 : 0);
+          }
+          .onClick(() => {
+            this.select = this.select === index ? 0 : index;
+            this.onItemSelected?.(index);
+            this.controller.close();
+          });
+        }
+      });
+    }
+    .columnsTemplate('1fr 1fr 1fr 1fr 1fr')
+    .layoutDirection(GridDirection.Row)
+    .maxCount(5)
+    .layoutWeight(1);
+
+    Text("Collapse")
+      .padding(10)
+      .fontSize(16)
+      .width('100%')
+      .textAlign(TextAlign.Center)
+      .fontColor(Color.Black)
+      .onClick(() => this.controller.close());
+  }
+  .margin({ top: 80 })
+  .width('90%')
+  .backgroundColor(Color.White)
+  .borderRadius(16)
+  .padding(12);
+}
+
+Callback Implementation in the List Component
+typescript
+dialogController: CustomDialogController = new CustomDialogController({
+  builder: CustomImageGridDialog({
+    select: this.selectedIndex,
+    dataSource: this.list,
+    onItemSelected: (item: number) => {
+      this.onItemClick!(item);
+    }
+  }),
+  alignment: DialogAlignment.Top,
+  customStyle: true
+});
+
+onChange() {
+  this.listScroller.scrollToIndex(this.selectedIndex, true, ScrollAlign.CENTER);
+}
+
+
+
+
+The implementation ensures that the pop-up window, diamond zone, and list are linked: selecting an item in the pop-up updates the external list and centers the selected item, achieving seamless interaction.
