@@ -1,0 +1,192 @@
+Technical Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we optimized the shopping cart business logic to make our program more robust. In this section, we will start working on content outside of e-commerce business: second-hand item recycling. This is a brand new business module where we will implement corresponding recycling rewards, points, and recycling business-related content.
+
+Function Analysis
+To implement the second-hand item recycling feature, we first need to build a business framework. The content we need to implement includes a top-level recycling category display module, a scrolling user order notification module, an information filling module, and subsequent order entry modules. Let's start with the page layout.
+
+Code Implementation
+First, the top-level recycling category display module:
+
+
+@State recycleTop:ESObject[]=[{"txt":"Bags","img":$r('app.media.baobao')},{"txt":"Pants","img":$r('app.media.kuzi')},
+    {"txt":"Toys","img":$r('app.media.wanju')},{"txt":"Hats","img":$r('app.media.maozi')},
+    {"txt":"Shoes","img":$r('app.media.xiezi')},{"txt":"Clothes","img":$r('app.media.yifu')}]
+
+Column({space:10}){
+    Text("Recycling Categories")
+        .fontWeight(FontWeight.Bold)
+        .fontColor(Color.Black)
+        .fontSize(16)
+    List({space:30}){
+        ForEach(this.recycleTop,(item:ESObject,index:number)=>{
+            ListItem(){
+                Column(){
+                    Image(item.img)
+                        .width(30)
+                        .height(30)
+                        .objectFit(ImageFit.Contain)
+                    Text(item.txt)
+                        .fontColor(Color.Black)
+                        .fontSize(14)
+                }
+            }
+        })
+    }
+    .height(50)
+    .listDirection(Axis.Horizontal)
+
+    Text("Earn ¥10 for every 1kg of recycled items, which can be cashed out or used for consumption")
+        .width('100%')
+        .fontColor(Color.Orange)
+        .fontSize(14)
+        .textAlign(TextAlign.Center)
+}
+.margin({top:20})
+.alignItems(HorizontalAlign.Start)
+.width('95%')
+.backgroundColor(Color.White)
+.borderRadius(10)
+.padding(10)
+
+Next, implement the scrolling user order notification module. For now, we'll use static data. Vertical scrolling can be achieved using the Swiper component:
+
+javascript
+Swiper(this.swiperController){
+    ForEach(this.recycleTop,(item:ESObject,index:number)=>{
+        Row({space:5}){
+            Image($r('app.media.laba'))
+                .width(10)
+                .height(10)
+
+            Image($r('app.media.yonghu'))
+                .width(10)
+                .height(10)
+
+            Text(item.txt+"123****12333 successfully booked for second-hand clothing recycling on 06-08")
+                .fontColor(Color.Black)
+                .fontSize(12)
+        }
+        .padding({left:10})
+        .borderRadius(5)
+        .height(30)
+        .width("100%")
+        .backgroundColor(Color.White)
+    })
+}
+.padding({left:12,right:12})
+.borderRadius(5)
+.disableSwipe(true)
+.autoPlay(true)
+.interval(2000)
+.vertical(true)
+.indicator(false)
+
+Next, the user information filling module. The key information required here includes address, remarks, and the recycling time selected by the user:
+
+
+Column({space:10}){
+    Row(){
+        Image($r('app.media.weizhi'))
+            .width($r('app.float.size_17'))
+            .height($r('app.float.size_17'))
+            .objectFit(ImageFit.Contain)
+
+        Flex({direction:FlexDirection.Column,alignItems:ItemAlign.Start}){
+            Text("Address:")
+                .fontSize(16)
+                .fontWeight(FontWeight.Bold)
+                .fontColor($r('app.color.color_ff333'))
+            Text("Click to select address")
+                .fontSize(14)
+                .fontColor($r('app.color.color_999'))
+                .margin({top:$r('app.float.size_4')})
+        }
+        .margin({left:10})
+
+        Blank()
+        Image($r('app.media.back_right_recycle'))
+            .width($r('app.float.size_16'))
+            .height($r('app.float.size_16'))
+            .objectFit(ImageFit.Contain)
+    }
+    .alignItems(VerticalAlign.Top)
+    .padding({top:$r('app.float.size_16'),left:$r('app.float.size_10'),right:$r('app.float.size_10'),bottom:$r('app.float.size_10')})
+    .width('100%')
+    .height($r('app.float.size_80'))
+    .backgroundColor(Color.White)
+    .borderRadius($r('app.float.size_10'))
+    
+    Row(){
+        Image($r('app.media.liuyan'))
+            .width($r('app.float.size_17'))
+            .height($r('app.float.size_17'))
+            .objectFit(ImageFit.Contain)
+
+        Flex({direction:FlexDirection.Column,alignItems:ItemAlign.Start}){
+            Text("Remarks:")
+                .fontSize(16)
+                .fontWeight(FontWeight.Bold)
+                .fontColor($r('app.color.color_ff333'))
+            Text("Click to add remarks")
+                .fontSize(14)
+                .fontColor($r('app.color.color_999'))
+                .margin({top:$r('app.float.size_4')})
+        }
+        .margin({left:10})
+
+        Blank()
+        Image($r('app.media.back_right_recycle'))
+            .width($r('app.float.size_16'))
+            .height($r('app.float.size_16'))
+            .objectFit(ImageFit.Contain)
+    }
+    .alignItems(VerticalAlign.Top)
+    .padding({top:$r('app.float.size_16'),left:$r('app.float.size_10'),right:$r('app.float.size_10'),bottom:$r('app.float.size_10')})
+    .width('100%')
+    .height($r('app.float.size_80'))
+    .backgroundColor(Color.White)
+    .borderRadius($r('app.float.size_10'))
+
+    Row(){
+        Image($r('app.media.shijian'))
+            .width($r('app.float.size_17'))
+            .height($r('app.float.size_17'))
+            .objectFit(ImageFit.Contain)
+
+        Flex({direction:FlexDirection.Column,alignItems:ItemAlign.Start}){
+            Text("Pickup Time:")
+                .fontSize(16)
+                .fontWeight(FontWeight.Bold)
+                .fontColor($r('app.color.color_ff333'))
+            Text("Click to select time")
+                .fontSize(14)
+                .fontColor($r('app.color.color_999'))
+                .margin({top:$r('app.float.size_4')})
+        }
+        .margin({left:10})
+
+        Blank()
+        Image($r('app.media.back_right_recycle'))
+            .width($r('app.float.size_16'))
+            .height($r('app.float.size_16'))
+            .objectFit(ImageFit.Contain)
+    }
+    .alignItems(VerticalAlign.Top)
+    .padding({top:$r('app.float.size_16'),left:$r('app.float.size_10'),right:$r('app.float.size_10'),bottom:$r('app.float.size_10')})
+    .width('100%')
+    .height($r('app.float.size_80'))
+    .backgroundColor(Color.White)
+    .borderRadius($r('app.float.size_10'))
+}
+.padding(12)
+
+
+
+
+
+
+
+Running the code at this point, we have temporarily implemented the main framework for second-hand item recycling.
