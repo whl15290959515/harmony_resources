@@ -1,0 +1,170 @@
+Technology Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we implemented data querying and display for the address management page. Next, we will focus on address addition features, specifically map-based location selection. Before selecting a location on the map, we need to obtain the user's current location. After acquiring the coordinates and other information, we will display them on the corresponding map.
+
+Functional Analysis
+To implement location functionality:
+
+Apply for location permissions in the application.
+Check if location services are enabled each time the page loads. If not, prompt the user to enable them.
+Request location permissions from the user. Upon approval, retrieve the current coordinates.
+
+Code Implementation
+1. Add Permissions in model.json5
+json
+{
+  "name": "ohos.permission.LOCATION",
+  "reason": "$string:app_location",
+  "usedScene": {
+    "abilities": ["EntryAbility"],
+    "when": "inuse"
+  }
+},
+{
+  "name": "ohos.permission.APPROXIMATELY_LOCATION",
+  "reason": "$string:app_reason_location",
+  "usedScene": {
+    "abilities": ["EntryAbility"],
+    "when": "inuse"
+  }
+}
+2. Create Location Management Page
+typescript
+@State locationKey: boolean = false;
+@State addressSetting: boolean = false;
+
+aboutToAppear(): void {
+  try {
+    const locationEnabled = geoLocationManager.isLocationEnabled();
+    this.addressSetting = locationEnabled;
+  } catch (err) {
+    console.error("errCode:" + err.code + ", message:" + err.message);
+  }
+}
+3. Prompt User to Enable Location
+typescript
+build() {
+  Column() {
+    Stack({ alignContent: Alignment.Bottom }) {
+      Column() {
+        // Content
+      }
+      .layoutWeight(1);
+
+      if (this.addressSetting && !this.locationKey) {
+        Row() {
+          Text().width(40);
+          Text("Location Disabled").fontColor(Color.Black);
+          Text("Enable Location")
+            .fontColor(Color.White)
+            .backgroundColor(Color.Pink)
+            .borderRadius(10)
+            .padding(10)
+            .onClick(() => {
+              this.reqPermissionsFromUser(permissions);
+              this.permissionController.open();
+            });
+        }
+        .padding(10)
+        .borderRadius(5)
+        .margin({ bottom: 30 })
+        .backgroundColor('#33000000')
+        .justifyContent(FlexAlign.SpaceAround)
+        .width('90%');
+      }
+    }
+    .backgroundColor(Color.White)
+    .height('100%')
+    .width('100%');
+  }
+}
+4. Permission Request Dialog
+typescript
+@CustomDialog
+export default struct PermissionDialogWidget {
+  @State titleText: string = '';
+  @State contentText: string = '';
+  controller: CustomDialogController;
+
+  build() {
+    Column() {
+      Text(this.titleText).margin({ top: 10 });
+      Text(this.contentText).margin({ top: 20, bottom: 10 });
+    }
+    .justifyContent(FlexAlign.Start)
+    .padding({ left: 20, right: 20 });
+  }
+}
+
+// Usage
+permissionController: CustomDialogController = new CustomDialogController({
+  builder: PermissionDialogWidget({
+    titleText: "Permission Explanation",
+    contentText: 'Location permission is required for address selection. Once granted, this permission will be reused for address selection without re-requesting. Denying this permission will not affect other app functions.'
+  }),
+  alignment: DialogAlignment.Top
+});
+5. Execute Permission Request
+typescript
+reqPermissionsFromUser(permissions: Array<Permissions>): void {
+  const context = getContext(this) as common.UIAbilityContext;
+  const atManager = abilityAccessCtrl.createAtManager();
+  
+  atManager.requestPermissionsFromUser(context, permissions).then((data) => {
+    const grantStatus: Array<number> = data.authResults;
+    
+    for (let i = 0; i < grantStatus.length; i++) {
+      if (grantStatus[i] === 0) {
+        this.locationKey = true;
+        this.permissionController.close();
+        
+        const request: geoLocationManager.SingleLocationRequest = {
+          'locatingPriority': geoLocationManager.LocatingPriority.PRIORITY_LOCATING_SPEED,
+          'locatingTimeoutMs': 10000
+        };
+        
+        try {
+          geoLocationManager.getCurrentLocation(request).then((result) => {
+            console.log('Current location: ' + JSON.stringify(result));
+            
+            const reverseGeocodeRequest: geoLocationManager.ReverseGeoCodeRequest = {
+              "latitude": result.latitude, 
+              "longitude": result.longitude, 
+              "maxItems": 1
+            };
+            
+            try {
+              geoLocationManager.getAddressesFromLocation(reverseGeocodeRequest, (err, data) => {
+                if (err) {
+                  console.error('getAddressesFromLocation error: ' + JSON.stringify(err));
+                }
+                if (data) {
+                  console.info('Address info: ' + JSON.stringify(data));
+                }
+              });
+            } catch (err) {
+              console.error("Reverse geocoding error: " + err.message);
+            }
+          }).catch((error) => {
+            console.error('Location request error: ' + JSON.stringify(error));
+          });
+        } catch (err) {
+          console.error("Location request exception: " + JSON.stringify(err));
+        }
+      } else {
+        this.locationKey = false;
+        this.permissionController.close();
+        return;
+      }
+    }
+  }).catch((err: Error) => {
+    console.error(`Permission request failed: ${err.message}`);
+  });
+}
+
+
+This implementation achieves both the synchronous explanation through a custom dialog and the configuration of permission reasons in model.json5. You can choose the appropriate approach based on your needs.
+
+The location coordinates are retrieved from the location request response, completing the location acquisition functionality.
