@@ -1,0 +1,291 @@
+Technical Stack
+Appgallery connect
+
+Development Preparation
+In previous feature developments, some functions only had display capabilities without any interaction with the cloud. Through subsequent iterations, more functionalities have gained interactive capabilities. In this section, we will start adding business logic to those static display modules, beginning with implementing the new user coupon redemption feature on the home page.
+
+Functional Analysis
+For new user coupons, we have defined fields during creation, including coupon ID, denomination, minimum applicable amount, etc. Since we need to bind coupons with users, we need to create a new coupon table, populate it with existing coupon data, and add a user ID field to facilitate user-based querying.
+
+Code Implementation
+First, create the corresponding coupon table and define fields:
+
+
+{
+  "objectTypeName": "coupon_mall",
+  "fields": [
+    {"fieldName": "id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "user_id", "fieldType": "Integer"},
+    {"fieldName": "coupon_id", "fieldType": "Integer", "notNull": true, "defaultValue": 0},
+    {"fieldName": "price", "fieldType": "Double"},
+    {"fieldName": "type", "fieldType": "Integer"},
+    {"fieldName": "limit_amount", "fieldType": "Double"},
+    {"fieldName": "start_time", "fieldType": "String"},
+    {"fieldName": "end_time", "fieldType": "String"},
+    {"fieldName": "type_str", "fieldType": "String"},
+    {"fieldName": "txt", "fieldType": "String"}
+  ],
+  "indexes": [
+    {"indexName": "field1Index", "indexList": [{"fieldName":"id","sortType":"ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+
+After adding the required fields, generate corresponding entities and database classes:
+
+
+import { cloudDatabase } from '@kit.CloudFoundationKit';
+
+class coupon_mall extends cloudDatabase.DatabaseObject {
+  public id: number;
+  public user_id: number;
+  public coupon_id = 0;
+  public price: number;
+  public type: number;
+  public limit_amount: number;
+  public start_time: string;
+  public end_time: string;
+  public type_str: string;
+  public txt: string;
+
+  public naturalbase_ClassName(): string {
+    return 'coupon_mall';
+  }
+}
+
+export { coupon_mall };
+
+
+
+class CouponMall {
+    id: number;
+    user_id: number;
+    coupon_id: number = 0;
+    price: number;
+    type: number;
+    limit_amount: number;
+    start_time: string;
+    end_time: string;
+    type_str: string;
+    txt: string;
+
+    constructor() {
+    }
+
+
+    setId(id: number): void {
+        this.id = id;
+    }
+
+    getId(): number  {
+        return this.id;
+    }
+
+    setUser_id(user_id: number): void {
+        this.user_id = user_id;
+    }
+
+    getUser_id(): number  {
+        return this.user_id;
+    }
+
+    setCoupon_id(coupon_id: number): void {
+        this.coupon_id = coupon_id;
+    }
+
+    getCoupon_id(): number  {
+        return this.coupon_id;
+    }
+
+    setPrice(price: number): void {
+        this.price = price;
+    }
+
+    getPrice(): number  {
+        return this.price;
+    }
+
+    setType(type: number): void {
+        this.type = type;
+    }
+
+    getType(): number  {
+        return this.type;
+    }
+
+    setLimit_amount(limit_amount: number): void {
+        this.limit_amount = limit_amount;
+    }
+
+    getLimit_amount(): number  {
+        return this.limit_amount;
+    }
+
+    setStart_time(start_time: string): void {
+        this.start_time = start_time;
+    }
+
+    getStart_time(): string  {
+        return this.start_time;
+    }
+
+    setEnd_time(end_time: string): void {
+        this.end_time = end_time;
+    }
+
+    getEnd_time(): string  {
+        return this.end_time;
+    }
+
+    setType_str(type_str: string): void {
+        this.type_str = type_str;
+    }
+
+    getType_str(): string  {
+        return this.type_str;
+    }
+
+    setTxt(txt: string): void {
+        this.txt = txt;
+    }
+
+    getTxt(): string  {
+        return this.txt;
+    }
+}
+
+export { CouponMall };
+
+After generating the files, add corresponding logic to the "Redeem Now" button in the new user coupon module on the home page. Since there are multiple coupons, we need to loop through and upload them to the cloud database:
+
+
+import { coupon_mall } from "../clouddb/coupon_mall"
+import { couponInfo } from "../entity/couponInfo"
+import { homeNewPeopleCoupon } from "../entity/homeNewPeopleCoupon"
+import { cloudDatabase } from "@kit.CloudFoundationKit"
+import { hilog } from "@kit.PerformanceAnalysisKit"
+import showToast from "../utils/ToastUtils"
+import { StorageUtils } from "../utils/StorageUtils"
+import { User } from "../entity/User"
+
+@Component
+@Preview
+export struct CouponComponent {
+  @Link home_activity:homeNewPeopleCoupon|null
+  @Link couponList:couponInfo[]
+  @State user: User|null=null
+
+  async aboutToAppear(): Promise<void> {
+    const value = await StorageUtils.getAll('user');
+    if (value!='') {
+      this.user=JSON.parse(value)
+    }
+  }
+
+  build() {
+    Column() {
+      Row() {
+        Text(this.home_activity?.title)
+          .fontSize(20)
+          .fontColor('#FF0000')
+
+        Text(this.home_activity?.msg)
+          .fontSize(14)
+          .fontColor('#888888')
+          .margin({left:10})
+      }
+      .width('100%')
+      .padding(16)
+
+      List({ space: 10 }) {
+        ForEach(this.couponList, (item:couponInfo) => {
+          ListItem() {
+            Column() {
+              Text(item.price)
+                .fontSize(22)
+                .fontColor('#FF4444')
+                .margin({ bottom: 8 })
+
+              Text(item.type)
+                .fontSize(12)
+                .fontColor('#FF4444')
+            }
+            .padding(10)
+            .backgroundColor("#ffffff")
+            .borderRadius(8)
+          }
+        })
+      }
+      .margin({left:50})
+      .listDirection(Axis.Horizontal)
+      .width('100%')
+      .height(80)
+
+      Button('Redeem Now', { type: ButtonType.Normal })
+        .width(240)
+        .height(40)
+        .backgroundColor('#FF0000')
+        .fontColor(Color.White)
+        .borderRadius(20)
+        .margin({ bottom: 16 })
+        .onClick(async ()=>{
+          for (let i = 0; i < this.couponList.length; i++) {
+            let coupon=new coupon_mall()
+            coupon.id=Math.floor(Math.random() * 1000000);
+            coupon.user_id=this.user!.user_id
+            coupon.coupon_id=this.couponList[i].coupon_id
+            coupon.price=Number(this.couponList[i].price)
+            coupon.type=0
+            coupon.limit_amount=this.couponList[i].limit_amount
+            coupon.start_time=this.creatTime()
+            coupon.end_time=this.endTime()
+            coupon.type_str=this.couponList[i].type
+            coupon.txt="Valid for all products"
+            let databaseZone = cloudDatabase.zone('default');
+            let num = await databaseZone.upsert(coupon);
+            hilog.info(0x0000, 'testTag', `Succeeded in upserting data, result: ${num}`);
+            if (num>0) {
+              showToast("Coupon redeemed successfully")
+            }
+          }
+        })
+    }
+    .backgroundColor("#fffce2be")
+    .width('95%')
+    .margin({top:10})
+    .borderRadius(20)
+  }
+
+  creatTime(): string {
+    const now = new Date();
+
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  }
+
+  endTime(): string {
+    const now = new Date();
+
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+
+    return `${year}-${month}-${parseInt(day)+7} ${hours}:${minutes}:${seconds}`;
+  }
+}
+
+After completing the implementation, execute the code and click the coupon redemption button to test the functionality.
