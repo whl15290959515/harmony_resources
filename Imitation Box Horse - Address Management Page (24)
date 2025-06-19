@@ -1,0 +1,174 @@
+Technology Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we implemented the information display and modification on the personal information page, along with synchronized data updates. This section focuses on implementing a crucial module in e-commerce applications: the address module. We will start with address display.
+
+Functional Analysis
+Displaying the address list is relatively straightforward. First, we need to create a corresponding table, add test data in the cloud, query addresses associated with the current user on the page, and display them in the list component.
+
+Code Implementation
+1. Create Address Table
+json
+{
+  "objectTypeName": "address_list",
+  "fields": [
+    {"fieldName": "id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "user_id", "fieldType": "Integer", "notNull": true, "defaultValue": 0},
+    {"fieldName": "administrativeArea", "fieldType": "String"},
+    {"fieldName": "locality", "fieldType": "String"},
+    {"fieldName": "subLocality", "fieldType": "String"},
+    {"fieldName": "placeName", "fieldType": "String"},
+    {"fieldName": "latitude", "fieldType": "String"},
+    {"fieldName": "longitude", "fieldType": "String"},
+    {"fieldName": "nikeName", "fieldType": "String"},
+    {"fieldName": "phone", "fieldType": "String"},
+    {"fieldName": "address", "fieldType": "String"}
+  ],
+  "indexes": [
+    {"indexName": "field1IndexId", "indexList": [{"fieldName":"id","sortType":"ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+2. Generate DB Class
+typescript
+import { cloudDatabase } from '@kit.CloudFoundationKit';
+
+class address_list extends cloudDatabase.DatabaseObject {
+  public id: number;
+  public user_id = 0;
+  public administrativeArea: string;
+  public locality: string;
+  public subLocality: string;
+  public placeName: string;
+  public latitude: string;
+  public longitude: string;
+  public nikeName: string;
+  public phone: string;
+  public address: string;
+
+  public naturalbase_ClassName(): string {
+    return 'address_list';
+  }
+}
+
+export { address_list };
+3. Generate Entity Class
+typescript
+class AddressList {
+    id: number;
+    user_id: number = 0;
+    administrativeArea: string;
+    locality: string;
+    subLocality: string;
+    placeName: string;
+    latitude: string;
+    longitude: string;
+    nikeName: string;
+    phone: string;
+    address: string;
+
+    constructor() {}
+
+    // ... (metadata methods and getters/setters)
+
+    static parseFrom(inputObject: any): AddressList {
+        const result = new AddressList();
+        if (!inputObject) return result;
+        if (inputObject.id) result.id = inputObject.id;
+        if (inputObject.user_id) result.user_id = inputObject.user_id;
+        if (inputObject.administrativeArea) result.administrativeArea = inputObject.administrativeArea;
+        // ... (other field assignments)
+        return result;
+    }
+}
+
+export { AddressList };
+4. Create Address List Page
+typescript
+@Entry
+@Component
+struct AddressListPage {
+  @State user: User | null = null;
+  @State addressList: AddressList[] = [];
+
+  async aboutToAppear(): Promise<void> {
+    const value = await StorageUtils.getAll('user');
+    this.user = JSON.parse(value);
+    const databaseZone = cloudDatabase.zone('default');
+    const condition = new cloudDatabase.DatabaseQuery(address_list)
+      .equalTo("user_id", this.user!.user_id);
+    const listData = await databaseZone.query(condition);
+    this.addressList = JSON.parse(JSON.stringify(listData)).map(AddressList.parseFrom);
+    hilog.info(0x0000, 'testTag', `Data query success: ${this.addressList}`);
+  }
+
+  build() {
+    Column() {
+      CommonTopBar({ title: "Address List", alpha: 0, titleAlignment: TextAlign.Center, backButton: true });
+      Stack({ alignContent: Alignment.Bottom }) {
+        Column() {
+          List() {
+            ForEach(this.addressList, (item: AddressList, index: number) => {
+              ListItem() {
+                Column() {
+                  Row() {
+                    Column({ space: 10 }) {
+                      Row() {
+                        Text(item.nikeName)
+                          .fontColor(Color.Black)
+                          .fontSize(16)
+                          .fontWeight(FontWeight.Bold);
+                        Text(item.phone)
+                          .fontColor(Color.Black)
+                          .fontSize(16)
+                          .fontWeight(FontWeight.Bold)
+                          .margin({ left: 20 });
+                      }
+                      Text(item.address)
+                        .fontColor(Color.Black)
+                        .fontSize(16);
+                    }
+                    .alignItems(HorizontalAlign.Start);
+                    Image($r('app.media.address_edit'))
+                      .width(20)
+                      .height(20)
+                      .onClick(() => showToast("Edit"));
+                  }
+                  .justifyContent(FlexAlign.SpaceBetween)
+                  .width('100%')
+                  .padding(10);
+                  Divider().width('90%').height(0.8).color("#ffb1b0b0");
+                }
+              }
+            });
+          }
+          .layoutWeight(1);
+        }
+        .height('90%');
+        Text("Add New Address")
+          .width('70%')
+          .height(45)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(Color.White)
+          .backgroundColor(0xff0000)
+          .borderRadius(10)
+          .textAlign(TextAlign.Center);
+      }
+      .backgroundColor(Color.White);
+    }
+    .backgroundColor(Color.White)
+    .height('100%')
+    .width('100%');
+  }
+}
+
+
+
+
+Executing the application now displays the address list, completing the address display functionality.
