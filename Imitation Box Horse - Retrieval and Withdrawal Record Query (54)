@@ -1,0 +1,131 @@
+Technical Stack
+Appgallery connect
+
+Development Preparation
+In the previous section, we implemented the function of recycling fund withdrawal and successfully displayed the current account's expenditure list. However, the withdrawal-related records were not well presented to users. Users only know that their account has been debited for withdrawal but are unaware of where the recycling funds go. In this section, we will implement the query, addition, and display of recycling fund records.
+
+Functional Analysis
+To implement these functions, we need to create a new table, populate it with corresponding information based on the currently bound user information, including the withdrawal bank card, withdrawal status, withdrawal time, and withdrawal amount. After users enter the withdrawal record page, query the current user's records via their userid and display them in a list.
+
+Code Implementation
+First, create the corresponding withdrawal record table:
+
+
+{
+  "objectTypeName": "withdrawal_record",
+  "fields": [
+    {"fieldName": "id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "user_id", "fieldType": "Integer", "notNull": true, "defaultValue": 0},
+    {"fieldName": "bank_name", "fieldType": "String"},
+    {"fieldName": "bank_num", "fieldType": "String"},
+    {"fieldName": "creat_time", "fieldType": "String"},
+    {"fieldName": "type_str", "fieldType": "String"},
+    {"fieldName": "money", "fieldType": "Double"}
+  ],
+  "indexes": [
+    {"indexName": "field1Index", "indexList": [{"fieldName":"id","sortType":"ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+
+After generating the corresponding entity and database classes, add the required information to the table when submitting a successful withdrawal record:
+
+
+let record=new withdrawal_record()
+record.id=Math.floor(Math.random() * 1000000)
+record.user_id=this.user!.user_id
+record.bank_name=this.bankList[0].bank_name
+record.bank_num=this.bankList[0].bank_card
+record.creat_time=this.year+"-"+this.month+"-"+this.day+" "+this.time
+record.type_str='0'
+record.money=this.moneyNum
+let status =  await databaseZone.upsert(record);
+
+Next, create a new page to display withdrawal records:
+
+
+@Entry
+@Component
+struct WithdrawalRecordPage {
+  @State user: User|null=null
+
+  build() {
+    Column() {
+      CommonTopBar({ title: "Withdrawal Records", alpha: 0, titleAlignment: TextAlign.Center ,backButton:true})
+    }
+    .backgroundColor("#F1F3F5")
+    .height('100%')
+    .width('100%')
+  }
+}
+
+First, query the data:
+
+
+@State user: User|null=null
+@State withdrawalRecordList:WithdrawalRecord[]=[]
+async aboutToAppear(): Promise<void> {
+  const value = await StorageUtils.getAll('user');
+  if (value != "") {
+    this.user = JSON.parse(value)
+  }
+  let databaseZone = cloudDatabase.zone('default');
+  let condition = new cloudDatabase.DatabaseQuery(withdrawal_record);
+  condition.equalTo("user_id", this.user?.user_id)
+  let listData = await databaseZone.query(condition);
+  let json = JSON.stringify(listData)
+  let data: WithdrawalRecord[] = JSON.parse(json)
+  if (data.length>0) {
+    this.withdrawalRecordList=data
+  }
+}
+
+Then, display the queried data in a list component:
+
+
+List({space:10}){
+  ForEach(this.withdrawalRecordList,(item:WithdrawalRecord,index:number)=>{
+    ListItem(){
+      Column({space:10}){
+        Row(){
+          Text(item.type_str=='0'?"Withdrawal Successful":"Processing")
+            .fontColor(item.type_str=='0'?Color.Green:Color.Black)
+            .fontSize(16)
+            .fontWeight(FontWeight.Bold)
+
+          Text("¥"+item.money+"")
+            .fontSize(16)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(Color.Black)
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.SpaceBetween)
+        Row(){
+          Text(item.bank_name+" ("+item.bank_num+")")
+            .fontColor(Color.Black)
+            .fontSize(14)
+            .fontWeight(FontWeight.Bold)
+
+          Text(item.creat_time+"")
+            .fontSize(14)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(Color.Grey)
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.SpaceBetween)
+      }
+      .padding(10)
+      .width('100%')
+      .borderRadius(10)
+      .backgroundColor(Color.White)
+    }
+  })
+}
+.padding(10)
+
+Now, let's run the code to see the results.
