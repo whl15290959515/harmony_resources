@@ -1,0 +1,88 @@
+Technology Stack
+AppGallery Connect
+
+Development Preparation
+In the previous section, we implemented the "Select All" pop-up list for the top navigation bar on the category page and achieved click  with the top list. In this section, we'll implement the left-side category list, which must  with clicks from both the pop-up list and the top navigation bar.
+
+Functional Analysis
+List Display
+Query data based on the currently selected child_id from the top navigation bar. The top list represents major categories , while the left list shows subcategories .
+Clicking a top category should dynamically update the left list. This requires managing IDs from the pop-up, top list, and initial page load as query conditions.
+
+Code Implementation
+1. Update Callback to Pass IDs
+Modify the callback to return both position and child_id:
+
+typescript
+private onItemClick?: (pos: number, child_id: number) => void;
+
+// Pass IDs in the callback
+Classification({
+  selectedIndex: this.pos_check,
+  onItemClick: (pos, child_id) => {
+    this.pos_check = pos;
+    this.pos_check_id = child_id;
+  }
+});
+2. Rename Parameter for Clarity
+Rename leftListItemChildId to topListItemChildId and add a watcher:
+
+typescript
+@Link @Watch("onChange") topListItemChildId: number;
+
+async onChange() {
+  const condition = new cloudDatabase.DatabaseQuery(category_left_list)
+    .equalTo("child_id", this.topListItemChildId);
+  const listData = await databaseZone.query(condition);
+  this.categoryList = JSON.parse(JSON.stringify(listData));
+  hilog.error(0x0000, 'testTag', `Failed to query data: ${this.categoryList}`);
+}
+3. Left List UI Implementation
+typescript
+@Builder
+LeftList() {
+  List() {
+    ForEach(this.categoryList, (item: SplitLayoutModel, index) => {
+      ListItem() {
+        Row() {
+          Divider()
+            .vertical(true)
+            .color("#000000")
+            .height(40)
+            .width(3)
+            .visibility(this.checkPosition === index ? Visibility.Visible : Visibility.None);
+
+          Text(item.txt)
+            .fontSize(12)
+            .fontWeight(this.checkPosition === index ? FontWeight.Bold : FontWeight.Normal)
+            .textAlign(TextAlign.Center)
+            .width(75)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .maxLines(1)
+            .backgroundColor(this.checkPosition === index ? Color.White : "#f7f7f7")
+            .fontColor(this.checkPosition === index ? "#000000" : "#999999");
+        }
+        .backgroundColor(this.checkPosition === index ? Color.White : "#f7f7f7")
+        .height(60)
+        .width(80)
+        .onClick(() => {
+          this.checkPosition = index;
+        });
+      }
+    });
+  }
+  .height('100%')
+  .backgroundColor("#f7f7f7")
+  .listDirection(Axis.Vertical)
+  .divider({ strokeWidth: 0.5, color: "#e6e6e6" })
+  .edgeEffect(EdgeEffect.Spring)
+  .onScrollIndex((firstIndex, lastIndex) => {
+    console.info(`First visible: ${firstIndex}, Last visible: ${lastIndex}`);
+  })
+  .scrollBar(BarState.Off)
+  .width(80);
+}
+
+
+Implementation Result
+The left-side category list now updates dynamically based on selections from the top navigation bar or pop-up list. This completes the implementation of the left list with full synchronization across all components.
