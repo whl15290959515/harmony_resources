@@ -1,0 +1,156 @@
+Technical Stack
+Appgallery connect
+
+Development Preparation
+We have successfully implemented coupon redemption and display features, bringing our application closer to a complete e-commerce platform. However, a new issue arises: after users redeem their new user coupons, the new user coupon module remains visible. Since our data is queried from the cloud database, we need to find a corresponding field to control the visibility of this module. Specifically, the module should hide after the user redeems the coupons, remain hidden when the user is not logged in, and display only when the user is logged in and eligible for new user coupons. Additionally, during checkout, we need to determine how many coupons are applicable based on the order amount.
+
+Functional Analysis
+Our coupon display uses a component-based approach. When the user is not logged in, the component does not destroy, and the aboutToAppear lifecycle method does not execute again, preventing updates to the user information. To solve this, we need to ensure user information is fetched in real-time. We'll use the isvip field, 预留 during table creation, to determine if a user is a new user. On the order confirmation page, we'll filter applicable coupons based on the minimum spend requirement.
+
+Code Implementation
+First, after redeeming coupons, update the isvip status via callback and receive user information after login:
+
+
+@Link user: User|null
+private callback?: () => void
+
+Button('Redeem Now', { type: ButtonType.Normal })
+  .width(240)
+  .height(40)
+  .backgroundColor('#FF0000')
+  .fontColor(Color.White)
+  .borderRadius(20)
+  .margin({ bottom: 16 })
+  .onClick(async () => {
+    try {
+      for (const item of this.couponList) {
+        const coupon = new coupon_mall();
+        coupon.id = Math.floor(Math.random() * 1000000);
+        coupon.user_id = this.user!.user_id;
+        coupon.coupon_id = item.coupon_id;
+        coupon.price = Number(item.price);
+        coupon.type = 0;
+        coupon.limit_amount = item.limit_amount;
+        coupon.start_time = this.creatTime();
+        coupon.end_time = this.endTime();
+        coupon.type_str = item.type;
+        coupon.txt = "Valid for all products";
+        const databaseZone = cloudDatabase.zone('default');
+        await databaseZone.upsert(coupon); // Wait for each upsert to complete
+      }
+
+      // Execute after all loops complete
+      showToast("Coupons redeemed successfully");
+      this.callback!();
+    } catch (error) {
+      hilog.error(0x0000, 'testTag', `Insertion failed: ${error}`);
+      showToast("Failed to redeem coupons");
+    }
+  })
+
+Implement the callback:
+
+
+CouponComponent({
+  home_activity: this.home_new_people_coupon,
+  couponList: this.couponList,
+  callback: async () => {
+    let users = new user();
+    users.id = this.user!.id;
+    users.user_id = this.user!.user_id;
+    users.user_name = this.user!.user_name;
+    users.psw = this.user!.psw;
+    users.is_vip = false;
+    users.user_code = this.user!.user_code;
+    users.is_log_off = this.user!.is_vip;
+    
+    let num = await databaseZone.upsert(users);
+    StorageUtils.set("user", JSON.stringify(users));
+
+    if (num > 0) {
+      let condition3 = new cloudDatabase.DatabaseQuery(user);
+      condition3
+        .equalTo("user_name", this.user?.user_name)
+        .and()
+        .equalTo("psw", this.user?.psw);
+      
+      let listData3 = await databaseZone.query(condition3);
+      let json3 = JSON.stringify(listData3);
+      let data3: User[] = JSON.parse(json3);
+      this.user = data3[0];
+    }
+  },
+  user: this.user
+})
+.visibility(this.user?.is_vip ? Visibility.Visible : Visibility.None)
+
+Control visibility using isvip and handle post-login user information:
+
+
+let innerEvent2: emitter.InnerEvent = {
+  eventId: 2001
+};
+
+let callback2: Callback<emitter.EventData> = async (eventData: emitter.EventData) => {
+  console.info(`eventData: ${JSON.stringify(eventData)}`);
+  const value = await StorageUtils.getAll('user');
+  if (value != "") {
+    this.user = JSON.parse(value);
+  } else {
+    this.userInfo = null;
+    this.user = null;
+  }
+};
+
+emitter.on(innerEvent2, callback2);
+
+On the order confirmation page, query available coupons:
+
+
+let databaseZone = cloudDatabase.zone('default');
+let condition = new cloudDatabase.DatabaseQuery(coupon_mall);
+condition
+  .equalTo("user_id", this.user?.user_id)
+  .and()
+  .equalTo("type", 0);
+
+let listData = await databaseZone.query(condition);
+let json = JSON.stringify(listData);
+let data: CouponMall[] = JSON.parse(json);
+this.couponList = data;
+
+Filter applicable coupons based on the order amount:
+
+
+getCoupon(): number {
+  let eligibleCoupons = this.couponList.filter(coupon =>
+    coupon.limit_amount <= this.price()
+  ).length;
+  return eligibleCoupons;
+}
+
+Update the UI:
+
+
+Row() {
+  Text("Coupons")
+    .fontSize(14)
+    .fontColor(Color.Black);
+
+  if (this.getCoupon() > 0) {
+    Text(`${this.getCoupon()} available`)
+      .fontSize(14)
+      .fontColor(Color.Red);
+  } else {
+    Text("No available coupons")
+      .fontSize(14)
+      .fontColor(Color.Black);
+  }
+}
+.padding(10)
+.width('100%')
+.justifyContent(FlexAlign.SpaceBetween)
+
+
+
+With these changes, our coupon logic is becoming more comprehensive.
