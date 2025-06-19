@@ -1,0 +1,161 @@
+Technology Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we implemented a static user login page. In this section, we need to add business logic to enable intercommunication with the cloud database and integrate it with the entire application. Since we haven’t implemented the user registration page yet, we will temporarily skip username validation for data insertion in the cloud database and focus on querying by inserting several sample records in the cloud.
+
+Functional Analysis
+The business logic of the login page primarily involves matching the user-input account and password with the information stored in the database, as well as storing and utilizing the current user information upon successful login.
+
+Code Implementation
+1. Create User Table
+json
+{
+  "objectTypeName": "user",
+  "fields": [
+    {"fieldName": "id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "user_id", "fieldType": "Integer", "notNull": true, "defaultValue": 0},
+    {"fieldName": "user_name", "fieldType": "String"},
+    {"fieldName": "psw", "fieldType": "String"},
+    {"fieldName": "is_vip", "fieldType": "Boolean"},
+    {"fieldName": "user_code", "fieldType": "String"},
+    {"fieldName": "is_log_off", "fieldType": "Boolean"}
+  ],
+  "indexes": [
+    {"indexName": "field1IndexId", "indexList": [{"fieldName":"id","sortType":"ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+
+Key parameters include account, password, user ID, and logout status, which are frequently used in other queries.
+2. Generate Corresponding DB Class and Entity Class
+typescript
+// User entity class
+class User {
+    id: number;
+    user_id: number = 0;
+    user_name: string;
+    psw: string;
+    is_vip: boolean;
+    user_code: string;
+    is_log_off: boolean;
+
+    // ... (metadata methods and getters/setters)
+
+    static parseFrom(inputObject: any): User {
+        const result = new User();
+        if (!inputObject) return result;
+        if (inputObject.id) result.id = inputObject.id;
+        if (inputObject.user_id) result.user_id = inputObject.user_id;
+        if (inputObject.user_name) result.user_name = inputObject.user_name;
+        if (inputObject.psw) result.psw = inputObject.psw;
+        if (inputObject.is_vip !== undefined) result.is_vip = inputObject.is_vip;
+        if (inputObject.user_code) result.user_code = inputObject.user_code;
+        if (inputObject.is_log_off !== undefined) result.is_log_off = inputObject.is_log_off;
+        return result;
+    }
+}
+
+export { User };
+
+typescript
+// Database object class
+import { cloudDatabase } from '@kit.CloudFoundationKit';
+
+class user extends cloudDatabase.DatabaseObject {
+  public id: number;
+  public user_id = 0;
+  public user_name: string;
+  public psw: string;
+  public is_vip: boolean;
+  public user_code: string;
+  public is_log_off: boolean;
+
+  public naturalbase_ClassName(): string {
+    return 'user';
+  }
+}
+
+export { user };
+3. Create Preference Utility Class for User Data Storage
+typescript
+import dataPreferences from '@ohos.data.preferences';
+import common from '@ohos.app.ability.common';
+let context = getContext(this) as common.UIAbilityContext;
+const defaultPreferenceName = "OPEN_EYE_PREFERENCES";
+
+type ValueType = number | string | boolean | Array<number> | Array<string> | Array<boolean>;
+
+export class StorageUtils {
+  static async getAwait(name: string, def = 'moren'): Promise<string> {
+    return await new Promise((resolve) => {
+      dataPreferences.getPreferences(context, defaultPreferenceName)
+        .then((res) => res.get(name, def))
+        .then((data) => resolve(data.toString()));
+    });
+  }
+
+  // ... (other methods for get, set, remove, etc.)
+
+  static set(name: string, value: string): void {
+    dataPreferences.getPreferences(context, defaultPreferenceName)
+      .then((res) => {
+        res.put(name, value);
+        res.flush();
+      });
+  }
+}
+4. Implement Login Business Logic
+typescript
+async login(): Promise<void> {
+  if (!this.acc || !this.psw) {
+    promptAction.showToast({ message: "Please enter account and password" });
+    return;
+  }
+
+  try {
+    const condition = new cloudDatabase.DatabaseQuery(user)
+      .equalTo("user_name", this.acc)
+      .and()
+      .equalTo("psw", this.psw);
+    const listData = await databaseZone.query(condition);
+    const data1: User[] = JSON.parse(JSON.stringify(listData)).map(User.parseFrom);
+
+    if (data1.length > 0) {
+      const userData = data1[0];
+      if (userData.is_log_off) {
+        // Account is logged out
+        promptAction.showDialog({
+          title: 'Notice',
+          message: 'This account has been logged out',
+          buttons: [
+            { text: 'Take Action', color: '#ffffff' },
+            { text: 'Close', color: '#ffffff' }
+          ]
+        })
+        .then((data) => showToast(`Button clicked: ${data.index}`))
+        .catch((err) => console.error('Dialog error:', err));
+      } else {
+        // Active account
+        StorageUtils.set("user_id", userData.user_id.toString());
+        router.back();
+      }
+    } else {
+      showToast("Please check username or password");
+    }
+    hilog.info(0x0000, 'testTag', `Query success: ${data1}`);
+  } catch (err) {
+    hilog.error(0x0000, 'testTag', `Login failed: ${err}`);
+    showToast("Login failed, please try again");
+  }
+}
+
+
+
+
+The business logic is now implemented, including data querying, status checking (logout status), and corresponding logic execution based on account validity. The login page now integrates with the cloud database to validate user credentials.
