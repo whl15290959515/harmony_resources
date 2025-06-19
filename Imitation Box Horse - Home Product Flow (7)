@@ -1,0 +1,238 @@
+Technical Stack
+Appgallery Connect
+Development Preparation
+In the previous section, we implemented the home page banner module. Now, we need to add a product list module to the home page. As a crucial part of a shopping app, the product list should be designed to support complex logic in the future, including image display, coupon integration, purchase limits, direct discounts, original prices, and more. While the list layout is compact, detailed product information will be shown on the product detail page after clicking.
+Code Implementation
+1. Create Product Table (home_product_list)
+json
+{
+  "objectTypeName": "home_product_list",
+  "fields": [
+    {"fieldName": "id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "goods_list_id", "fieldType": "Integer", "notNull": true, "defaultValue": 0},
+    {"fieldName": "url", "fieldType": "String"},
+    {"fieldName": "name", "fieldType": "Text"},
+    {"fieldName": "price", "fieldType": "Double"},
+    {"fieldName": "original_price", "fieldType": "Double"},
+    {"fieldName": "amount", "fieldType": "Integer"},
+    {"fieldName": "text_message", "fieldType": "String"},
+    {"fieldName": "parameter", "fieldType": "String"},
+    {"fieldName": "delivery_time", "fieldType": "String"},
+    {"fieldName": "endTime", "fieldType": "String"},
+    {"fieldName": "sales_volume", "fieldType": "Integer"},
+    {"fieldName": "space_id", "fieldType": "Integer"},
+    {"fieldName": "max_loop_amount", "fieldType": "Integer"},
+    {"fieldName": "promotion_spread_price", "fieldType": "Double"},
+    {"fieldName": "coupon_id", "fieldType": "Integer"}
+  ],
+  "indexes": [
+    {"indexName": "field1IndexId", "indexList": [{"fieldName":"id","sortType":"ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+2. Populate Product Data
+json
+{
+  "cloudDBZoneName": "default",
+  "objectTypeName": "home_product_list",
+  "objects": [
+    {
+      "id": 10,
+      "goods_list_id": 1,
+      "url": "Online Image URL",
+      "name": "Hongyan Strawberries",
+      "price": 10.5,
+      "original_price": 18.5,
+      "amount": 10,
+      "text_message": "Special Price",
+      "parameter": "Refrigerated",
+      "delivery_time": "Shipped within 24 hours after payment",
+      "endTime": "Limited Time Offer | Ends 2025-05-18 10:00",
+      "sales_volume": 9812,
+      "space_id": 10,
+      "max_loop_amount": 10,
+      "promotion_spread_price": 5,
+      "coupon_id": 10
+    },
+    {
+      "id": 20,
+      "goods_list_id": 1,
+      "url": "Online Image URL",
+      "name": "Kirin Melon",
+      "price": 2.8,
+      "original_price": 5.9,
+      "amount": 1,
+      "text_message": "Seasonal New Product",
+      "parameter": "Refrigerated",
+      "delivery_time": "Shipped within 24 hours after payment",
+      "endTime": "Limited Time Offer | Ends 2025-05-18 10:00",
+      "sales_volume": 9812,
+      "space_id": 11,
+      "max_loop_amount": 10,
+      "promotion_spread_price": 0,
+      "coupon_id": 10
+    }
+  ]
+}
+3. Data Query Implementation
+typescript
+@State homeProduct: HomeProductList[] = []; // Product list data
+
+async fetchProductData() {
+  try {
+    let databaseZone = cloudDatabase.zone('default');
+    let home_product = new cloudDatabase.DatabaseQuery(home_product_list);
+    let list7 = await databaseZone.query(home_product);
+    let json7 = JSON.stringify(list7);
+    let data7: HomeProductList[] = JSON.parse(json7);
+    this.homeProduct = data7;
+  } catch (err) {
+    hilog.error(0x0000, 'testTag', `Failed to query product data: ${err}`);
+  }
+}
+4. Product List Component (WaterFlowGoods.ets)
+typescript
+import { HomeProductList } from "../entity/home_product_list"
+
+@Component
+@Preview
+export struct WaterFlowGoods {
+  @Link goodsList: Array<HomeProductList>
+  @State columns: number = 2
+
+  build() {
+    WaterFlow() {
+      ForEach(this.goodsList, (item: HomeProductList, index) => {
+        FlowItem() {
+          Column() {
+            Image(item.url)
+              .width('100%')
+              .aspectRatio(1)
+              .objectFit(ImageFit.Cover)
+              .borderRadius({ topLeft: 10, topRight: 10 })
+
+            Column() {
+              Text(item.name)
+                .fontSize(16)
+                .fontColor('#333')
+                .margin({ bottom: 4 })
+
+              Text(item.text_message)
+                .fontSize(12)
+                .fontColor('#666')
+                .margin({ bottom: 8 })
+
+              Text("Up to ¥" + item.promotion_spread_price + " Off")
+                .fontSize(12)
+                .fontColor('#ffffff')
+                .visibility(item.promotion_spread_price > 0 ? Visibility.Visible : Visibility.None)
+                .margin({ bottom: 8 })
+                .padding({ left: 5, right: 5, top: 2, bottom: 2 })
+                .linearGradient({
+                  angle: 90,
+                  colors: [[0xff0000, 0], [0xff6666, 0.2], [0xff6666, 1]]
+                })
+
+              Row() {
+                Text("Purchase Limit")
+                  .width(40)
+                  .fontSize(12)
+                  .borderRadius(20)
+                  .backgroundColor("#FB424C")
+                  .padding(3)
+                  .textAlign(TextAlign.Center)
+                Text("Limit " + item.max_loop_amount + " per person")
+                  .margin({ left: 5 })
+                  .fontSize(12)
+                  .fontColor("#FB424C")
+              }
+              .borderRadius(20)
+              .padding({ top: 2, bottom: 2, right: 10 })
+              .backgroundColor("#FEE3E3")
+              .visibility(item.amount > 0 ? Visibility.Visible : Visibility.None)
+
+              Row() {
+                Text() {
+                  Span("¥")
+                    .fontColor(Color.Red)
+                    .fontSize(14)
+                  Span(String(item.price))
+                    .fontSize(16)
+                    .fontColor(Color.Red)
+                }
+                Text(String(item.original_price))
+                  .fontSize(12)
+                  .fontColor('#999')
+                  .decoration({
+                    type: TextDecorationType.LineThrough,
+                    color: Color.Gray
+                  })
+                  .margin({ left: 10 })
+
+                Blank()
+                Column() {
+                  Image($r('app.media.cart'))
+                    .width(20)
+                    .height(20)
+                }
+                .justifyContent(FlexAlign.Center)
+                .width(36)
+                .height(36)
+                .backgroundColor("#ff2bd2fa")
+                .borderRadius(18)
+              }
+              .margin({ top: 10 })
+              .width('100%')
+              .justifyContent(FlexAlign.SpaceBetween)
+            }
+            .alignItems(HorizontalAlign.Start)
+            .padding(12)
+          }
+          .backgroundColor(Color.White)
+          .borderRadius(12)
+          .onClick(() => {
+            // Navigate to product detail page
+          })
+        }
+        .margin({ bottom: 12 })
+      })
+    }
+    .padding(10)
+    .columnsTemplate('1fr 1fr')
+    .columnsGap(12)
+    .onAreaChange((oldVal, newVal) => {
+      this.columns = newVal.width > 600 ? 2 : 1; // Responsive layout
+    })
+  }
+}
+5. Integrate into Home Page
+typescript
+// In the home page component
+build() {
+  Column() {
+    // Other modules...
+    
+    // Product list component
+    WaterFlowGoods({ goodsList: this.homeProduct })
+    
+    // Remaining content...
+  }
+}
+Implementation Highlights
+Comprehensive Product Information
+The table includes fields for pricing (price, original_price), promotions (promotion_spread_price, coupon_id), inventory (amount, max_loop_amount), and more, supporting complex e-commerce logic.
+Visual Design with WaterFlow Layout
+Uses the WaterFlow component for a responsive grid layout, adapting to screen width (2 columns for widths >600, 1 column otherwise).
+Displays original prices with a strikethrough effect, highlights discounts in red, and shows purchase limits with colored tags.
+Interactive Elements
+Image placeholders for product images.
+Cart icon for adding products, with a click event 预留 for navigation to the product detail page.
+Dynamic Content Control
+Hides discount tags and purchase limits when irrelevant (e.g., promotion_spread_price = 0 or amount = 0).
+
+This implementation completes the home page product list, providing a foundation for future features like coupon redemption, inventory management, and detailed product navigation.
