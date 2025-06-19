@@ -1,0 +1,262 @@
+Technical Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we implemented the product details page, successfully displaying product images, specifications, promotion details, and more. Since most products have multiple models and specifications, this section focuses on implementing a product specification popup using custom dialogs.
+
+Functional Analysis
+Specification Popup:
+Fetch specification data from the database using the product's spec_id as a query condition.
+Trigger the popup when clicking the specification list or the "Add to Cart" button, allowing users to select specifications.
+
+Code Implementation
+1. Create Specification Table (product_details_spec)
+json
+{
+  "objectTypeName": "product_details_spec",
+  "fields": [
+    {"fieldName": "id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "spec_id", "fieldType": "Integer", "notNull": true, "defaultValue": 0},
+    {"fieldName": "name", "fieldType": "String"},
+    {"fieldName": "url", "fieldType": "String"},
+    {"fieldName": "price", "fieldType": "Double"},
+    {"fieldName": "original_price", "fieldType": "Double"},
+    {"fieldName": "maxLoopAmount", "fieldType": "Integer"},
+    {"fieldName": "loopAmount", "fieldType": "Integer"},
+    {"fieldName": "coupon", "fieldType": "Double"}
+  ],
+  "indexes": [
+    {"indexName": "field1IndexId", "indexList": [{"fieldName":"id","sortType":"ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+2. Populate Sample Data
+json
+{
+  "cloudDBZoneName": "default",
+  "objectTypeName": "product_details_spec",
+  "objects": [
+    {
+      "id": 10,
+      "spec_id": 10,
+      "name": "Hongyan Strawberry",
+      "url": "Online Image URL",
+      "price": 23,
+      "original_price": 27,
+      "maxLoopAmount": 8,
+      "loopAmount": 10,
+      "coupon": 10
+    },
+    {
+      "id": 20,
+      "spec_id": 10,
+      "name": "Lanyan Strawberry",
+      "url": "Online Image URL",
+      "price": 70,
+      "original_price": 99,
+      "maxLoopAmount": 20,
+      "loopAmount": 20,
+      "coupon": 20
+    },
+    // ... (remaining objects omitted for brevity)
+    {
+      "id": 90,
+      "spec_id": 11,
+      "name": "Black Beauty",
+      "url": "Online Image URL",
+      "price": 10.5,
+      "original_price": 10.5,
+      "maxLoopAmount": 10,
+      "loopAmount": 10,
+      "coupon": 10.5
+    }
+  ]
+}
+3. Query Specifications by Product ID
+typescript
+let databaseZone = cloudDatabase.zone('default');
+let condition = new cloudDatabase.DatabaseQuery(product_details_spec);
+condition.equalTo("spec_id", this.productParams.spec_id);
+let listData = await databaseZone.query(condition);
+let json = JSON.stringify(listData);
+let data: ProductDetailsSpec[] = JSON.parse(json);
+this.specList = data;
+hilog.error(0x0000, 'testTag', `Failed to query data, code: ${this.specList}`);
+4. Custom Specification Dialog Component (SpecDialog.ets)
+typescript
+import { ProductDetailsSpec } from "../entity/ProductDetailsSpec";
+import showToast from "../utils/ToastUtils";
+
+@CustomDialog
+export default struct SpecDialog {
+  @State specList: ProductDetailsSpec[] = [];
+  controller: CustomDialogController;
+  @State productSpec?: ProductDetailsSpec | null = null;
+  @State @Watch("onChange") checkIndex: number = 0;
+  @State selectedItem: number = -1; // Index of selected specification
+  @State addNumber: number = 1; // Default quantity
+
+  aboutToAppear(): void {
+    this.productSpec = this.specList[this.checkIndex];
+  }
+
+  onChange() {
+    this.productSpec = this.specList[this.checkIndex];
+  }
+
+  build() {
+    Column({ space: 10 }) {
+      Row() {
+        Image(this.productSpec?.url || 'https://via.placeholder.com/100x100')
+          .height(100)
+          .width(100);
+
+        Column() {
+          Row() {
+            Text() {
+              Span("¥")
+                .fontSize(16)
+                .fontColor(Color.Red);
+              Span(this.productSpec?.price?.toString() || "0")
+                .fontSize(22)
+                .fontWeight(FontWeight.Bold)
+                .padding({ top: 10 })
+                .fontColor(Color.Red);
+            }
+            .margin({ left: 15 });
+
+            Text("¥" + String(this.productSpec?.original_price || 0))
+              .fontSize(16)
+              .fontColor('#999')
+              .decoration({
+                type: TextDecorationType.LineThrough,
+                color: Color.Gray
+              })
+              .margin({ left: 10 });
+          }
+        }
+
+        Blank();
+        Image($r('app.media.spec_dialog_close'))
+          .height(20)
+          .width(20);
+      }
+      .alignItems(VerticalAlign.Top)
+      .width('100%')
+      .justifyContent(FlexAlign.SpaceBetween);
+
+      Divider().width('90%').height(0.5);
+
+      List({ space: 10 }) {
+        ForEach(this.specList, (item: ProductDetailsSpec, index: number) => {
+          ListItem() {
+            Text(item.name)
+              .padding(3)
+              .borderRadius(5)
+              .backgroundColor(this.checkIndex === index ? "#FCDB29" : Color.Grey)
+              .fontColor(this.checkIndex === index ? "#000000" : Color.White)
+              .onClick(() => {
+                this.checkIndex = index;
+              });
+          }
+        })
+      }
+      .height(50)
+      .listDirection(Axis.Horizontal);
+
+      Row() {
+        Text("Purchase Quantity")
+          .fontSize(16)
+          .fontColor(Color.Black);
+
+        Blank();
+
+        Text(" - ")
+          .textAlign(TextAlign.Center)
+          .border({ width: 0.5, color: Color.Gray })
+          .fontSize(14)
+          .height(20)
+          .padding({ left: 7, right: 7 })
+          .fontColor(Color.Black)
+          .onClick(() => {
+            if (this.addNumber === 1) {
+              showToast("Minimum quantity reached");
+            } else {
+              this.addNumber--;
+            }
+          })
+          .borderRadius({ topLeft: 5, bottomLeft: 5 });
+
+        Text(this.addNumber.toString())
+          .textAlign(TextAlign.Center)
+          .fontColor(Color.Black)
+          .fontSize(14)
+          .height(20)
+          .padding({ left: 20, right: 20 })
+          .border({ width: 0.5, color: Color.Gray });
+
+        Text(" + ")
+          .textAlign(TextAlign.Center)
+          .fontColor(Color.Black)
+          .fontSize(14)
+          .height(20)
+          .padding({ left: 7, right: 7 })
+          .onClick(() => {
+            this.addNumber++;
+          })
+          .border({ width: 0.5, color: Color.Gray })
+          .borderRadius({ topRight: 5, bottomRight: 5 });
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.SpaceBetween);
+
+      Row() {
+        Text("Add to Cart")
+          .width('70%')
+          .borderRadius(30)
+          .textAlign(TextAlign.Center)
+          .fontColor(Color.Black)
+          .margin({ top: 70 })
+          .height(40)
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+          .backgroundColor("#FCDB29");
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.Center);
+    }
+    .alignItems(HorizontalAlign.Start)
+    .backgroundColor(Color.White)
+    .justifyContent(FlexAlign.Start)
+    .padding(15)
+    .height(400)
+    .width('100%');
+  }
+}
+5. Initialize and Trigger the Dialog in the Details Page
+typescript
+// In ProductDetailsPage.ets
+specDialogController: CustomDialogController = new CustomDialogController({
+  builder: SpecDialog({
+    specList: this.specList
+  }),
+  alignment: DialogAlignment.Bottom,
+  customStyle: true
+});
+
+// Trigger the dialog
+this.specDialogController.open();
+Implementation Result
+The specification popup allows users to:
+
+View specifications associated with the current product.
+Select different specifications (e.g., product variants).
+Adjust the purchase quantity.
+Add the specified product to the cart.
+
+The popup dynamically updates product images, prices, and promotion information based on the selected specification, providing a seamless user experience for product selection.
