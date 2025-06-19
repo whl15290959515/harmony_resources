@@ -1,0 +1,137 @@
+Technical Stack
+Appgallery connect
+
+Development Preparation
+In the previous section, we implemented coupon selection and successfully displayed the post-coupon price to users. We also informed users in a user-friendly way about coupons that cannot be used. In this section, we will take the next step with coupon functionality, integrating coupon content with order settlement.
+
+Functional Analysis
+Since our previous order list separated order-related and product-related information, we will similarly separate coupon content, storing only the ID for subsequent querying of the coupon amount. First, we need to modify the order table. When selecting a coupon, we retrieve relevant coupon information and submit it along with the order, facilitating querying of the post-coupon price in order details.
+
+Code Implementation
+First, modify the orderlist table content:
+
+{
+  "CloudDBZoneName": "default",
+  "objectTypeName": "order_list",
+  "fields": [
+    {"fieldName": "id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "user_id", "fieldType": "Integer", "notNull": true, "defaultValue": 0},
+    {"fieldName": "order_code", "fieldType": "String"},
+    {"fieldName": "order_status", "fieldType": "Integer"},
+    {"fieldName": "order_product_id", "fieldType": "String"},
+    {"fieldName": "coupon_id", "fieldType": "Integer"},
+    {"fieldName": "address", "fieldType": "String"},
+    {"fieldName": "nickname", "fieldType": "String"},
+    {"fieldName": "phone", "fieldType": "String"},
+    {"fieldName": "order_remark", "fieldType": "String"},
+    {"fieldName": "pay_type", "fieldType": "String"},
+    {"fieldName": "order_create_time", "fieldType": "String"},
+    {"fieldName": "order_pay_time", "fieldType": "String"},
+    {"fieldName": "order_delivery_time", "fieldType": "String"},
+    {"fieldName": "order_over_time", "fieldType": "String"}
+  ],
+  "indexes": [
+    {"indexName": "field1Index", "indexList": [{"fieldName":"id","sortType":"ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+
+Then, retrieve the coupon ID when selecting a coupon, implemented via callback:
+
+
+// Custom pop-up window page
+onItemSelected: (coupon_id:number) => void= () => {
+};
+
+// Checkout page
+@State coupon_id:number=0
+
+couponController: CustomDialogController| null = new CustomDialogController({
+  builder: CouponCheckDialog({
+    couponPrice:this.couponPrice,
+    price:this.price(),
+    onItemSelected:(coupon_id:number)=>{
+      this.coupon_id=coupon_id
+    }
+  }),
+  alignment: DialogAlignment.Bottom,
+  customStyle:true
+});
+
+Merge and submit information when settling the order:
+
+
+Text("Submit Order")
+  .fontColor(Color.White)
+  .padding(10)
+  .borderRadius(10)
+  .backgroundColor("#d81e06")
+  .fontSize(14)
+  .onClick(async ()=>{
+    if (this.addressInfo!=null) {
+      let databaseZone = cloudDatabase.zone('default');
+      try {
+        for (let i = 0; i < this.productList.length; i++) {
+          let productPush = new order_product_list();
+          productPush.id=this.codeId+i
+          productPush.order_product_id=this.codeId
+          productPush.img=this.productList[i].productImgAddress
+          productPush.price=this.productList[i].productPrice
+          productPush.name=this.productList[i].productName
+          productPush.originalPrice=this.productList[i].productOriginalPrice
+          productPush.spec=this.productList[i].productSpecName
+          productPush.buyAmount=this.productList[i].buyAmount
+          let num = await databaseZone.upsert(productPush);
+          hilog.info(0x0000, 'testTag', `Succeeded in upserting data, result: ${num}`);
+        }
+      } catch (e) {
+        hilog.info(0x0000, 'testTag', `Failed to upsert data, error: ${e}`);
+      }
+
+      let orderPush = new order_list();
+      orderPush.id=Math.floor(Math.random() * 1000000)
+      orderPush.user_id=this.user!.user_id
+      orderPush.order_product_id=String(this.codeId)
+      orderPush.order_code=this.generateOrderNo(10)
+      orderPush.order_status=0
+      if (this.remark!='') {
+        orderPush.order_remark=this.remark
+      }
+      orderPush.coupon_id=this.coupon_id
+      orderPush.address=this.addressInfo.address
+      orderPush.nickname=this.addressInfo.nikeName
+      orderPush.phone=this.addressInfo.phone
+      orderPush.order_create_time=this.formatCurrentDate()
+      orderPush.order_pay_time=this.formatCurrentDate()
+      let num = await databaseZone.upsert(orderPush);
+      hilog.info(0x0000, 'testTag', `Succeeded in upserting order data, result: ${num}`);
+      if (num>0) {
+        for (let i = 0; i < this.productList.length; i++) {
+          if (this.productList[i].isNeedPay) {
+            let item = new cart_product_list();
+            item.id=this.productList[i].id
+            let listData = await databaseZone.delete(item);
+            hilog.info(0x0000, 'testTag', `Succeeded in deleting cart item, result: ${listData}`);
+          }
+        }
+        let eventData: emitter.EventData = {
+          data: {}
+        };
+        let innerEvent: emitter.InnerEvent = {
+          eventId: 1012,
+          priority: emitter.EventPriority.HIGH
+        };
+        emitter.emit(innerEvent, eventData);
+        router.replaceUrl({url:'pages/view/OrderSuccessPage',params:orderPush})
+      }
+    } else {
+      showToast("Please select an address first")
+    }
+  })
+
+This implements the association between order settlement and coupons.
