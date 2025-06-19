@@ -1,0 +1,368 @@
+Technical Stack
+Appgallery connect
+
+Development Preparation
+In the previous section, we implemented the binding and echo of the bank card. In this section, we will truly implement the function of bank card withdrawal. Before that, we need to further optimize the business logic of the withdrawal page. At the same time, to facilitate the interaction between data, we have added amount and points fields in the personal information module to facilitate the display and hiding of other pages.
+
+Functional Analysis
+To implement these functions, we first need to obtain the total amount of recycling funds under the current account, so that we can judge whether the user overfills the amount based on this when entering the amount, which reduces a request to the cloud database and avoids resource waste. At the same time, when withdrawing, we also need to generate corresponding records, operate the moneyinfo table, and since we have added fields in userinfo, we also need to operate the userinfo table.
+
+Code Implementation
+First, obtain the total account amount in the userinfo table of the current user on the withdrawal page.
+
+
+  let condition1=new cloudDatabase.DatabaseQuery(user_info)
+    condition1.equalTo("user_id", this.user?.user_id)
+    let listData1 = await databaseZone.query(condition1)
+    let json1=JSON.stringify(listData1)
+    let data1:UserInfo[] = JSON.parse(json1)
+    this.userInfo=data1[0]
+
+After obtaining it, pass it to the custom component for amount filling.
+
+
+// Define in the component first
+@Link userInfo:UserInfo|null
+
+// Pass in data
+  InputItem({userInfo:this.userInfo})
+
+Modify the corresponding verification logic to display the total amount of recycling funds in the current account.
+
+
+ TextInput({ text: this.text, placeholder: 'Enter withdrawal amount', controller: this.controller })
+          .placeholderColor("#999999")
+          .placeholderFont({ size: 28, weight: 400 })
+          .caretColor("#FCDB29")
+          .width(400)
+          .height(50)
+          .backgroundColor(null)
+          .type(InputType.Number)
+          .margin(20)
+          .fontSize(14)
+          .fontColor(Color.Black)
+          .onChange((value: string) => {
+
+            this.moneyNum=Number(value)
+            this.text = value
+            if (this.moneyNum>0&&this.moneyNum<=300) {
+              if (this.moneyNum>this.userInfo!.money) {
+                this.isPost=false
+              }else {
+                this.isPost=true
+              }
+            }else {
+              this.isPost=false
+            }
+          })
+      }
+      Divider().width('100%').height(1)
+      Text("Withdrawable amount ¥" + this.userInfo?.money + " (Maximum single withdrawal amount: 300)")
+        .fontSize(15)
+        .fontColor("#333333")
+
+Add a reminder to the user at the submit button.
+
+
+ if (this.moneyNum>this.userInfo!.money) {
+                    showToast('Exceeds the maximum withdrawable amount, please re-enter')
+
+                  }
+
+In this way, we first handle the logic, and then operate our two tables at the confirm withdrawal button, input the obtained data and the filled withdrawal amount, we need to subtract the current withdrawal amount from the account total and generate a record.
+
+
+   Text("Confirm Withdrawal")
+              .width('100%')
+              .fontColor(Color.White)
+              .borderRadius(15)
+              .padding(10)
+              .textAlign(TextAlign.Center)
+              .fontColor(this.isPost?Color.Black:Color.White)
+              .backgroundColor(this.isPost?"#ffff6363":$r('app.color.color_999'))
+              .onClick(async ()=>{
+                if (this.isPost) {
+                  let money=new money_info()
+                  money.id=Math.floor(Math.random() * 1000000)
+                  money.user_id=this.user!.user_id
+                  money.money=String(this.moneyNum)
+                  money.all_money=''
+                  money.money_type='1'
+                  money.address='Bank card withdrawal'
+                  money.year=this.year
+                  money.month=this.month
+                  money.day=this.day
+                  money.time=this.time
+                  money.create_time=this.year+"-"+this.month+"-"+this.day+" "+this.time
+                  let nums =  await databaseZone.upsert(money);
+
+
+
+                  let userData=new user_info()
+                  userData.id=this.userInfo!.id
+                  userData.user_id=this.userInfo!.user_id
+                  userData.sex=this.userInfo!.sex
+                  userData.bind_phone=this.userInfo!.bind_phone
+                  userData.create_time=this.userInfo!.create_time
+                  userData.nickname=this.userInfo!.nickname
+                  userData.head_img=this.userInfo!.head_img
+                  if (this.userInfo?.money!=null) {
+                    userData.money=this.userInfo!.money-this.moneyNum
+                  }else {
+                    userData.money=0
+                  }
+                  if (this.userInfo?.points!=null) {
+                    userData.points=this.userInfo!.points
+                  }else {
+                    userData.points=0
+                  }
+                  let s= await databaseZone.upsert(userData);
+
+                  if (s>0) {
+                    router.pushUrl({url:'pages/recycle/money/SuccessPage'})
+                  }
+                }else {
+                  if (this.moneyNum==0){
+                    showToast("Minimum withdrawal amount is 1 yuan per transaction")
+                  }
+                  if (this.moneyNum>300) {
+                    showToast('Daily limit is 300 yuan, please re-enter')
+                  }
+                  if (this.moneyNum>this.userInfo!.money) {
+                    showToast('Exceeds the maximum withdrawable amount, please re-enter')
+
+                  }
+                }
+              })
+
+After a successful withdrawal, we need to give the user feedback. At this time, we add a simple page to display the status.
+
+
+import { CommonTopBar } from '../../widget/CommonTopBar';
+import { router } from '@kit.ArkUI';
+
+@Entry
+@Component
+struct SuccessPage {
+  @State message: string = 'Hello World';
+
+  build() {
+    Column() {
+      CommonTopBar({ title: "Withdrawal Status", alpha: 0, titleAlignment: TextAlign.Center ,backButton:true})
+      Text("Withdrawal Successful")
+        .textAlign(TextAlign.Center)
+        .fontColor(Color.Black)
+        .fontSize(20)
+        .fontWeight(FontWeight.Bold)
+        .margin({top:100})
+
+      Image($r('app.media.success_money'))
+        .height(100)
+        .width(100)
+        .margin({top:20})
+
+
+
+      Text("Confirm")
+        .textAlign(TextAlign.Center)
+        .width('95%')
+        .padding(10)
+        .fontColor(Color.White)
+        .borderRadius(10)
+        .backgroundColor("#fffa4444")
+        .margin({top:100})
+        .onClick(()=>{
+          router.back()
+        })
+    }
+    .backgroundColor(Color.White)
+    .height('100%')
+    .width('100%')
+  }
+}
+
+When we execute the code and click the withdrawal button, we can see that the withdrawal is successful. Next, we return to the recycling fund page to view the total amount and withdrawal records, and we can see that both the total amount and records are displayed on the page.
+
+The complete code is as follows.
+
+
+import { BindBank } from "../../entity/BindBank"
+import showToast from "../../utils/ToastUtils"
+import { CommonTopBar } from "../../widget/CommonTopBar"
+import { BindAlipay } from "./BindAlipay"
+import { InputItem } from "./InputItem"
+import { router } from "@kit.ArkUI"
+import { StorageUtils } from "../../utils/StorageUtils"
+import { cloudDatabase } from "@kit.CloudFoundationKit"
+import { bind_bank } from "../../clouddb/bind_bank"
+import { User } from "../../entity/User"
+import { user_info } from "../../clouddb/user_info"
+import { UserInfo } from "../../entity/UserInfo"
+import { money_info } from "../../clouddb/MoneyInfo"
+let databaseZone = cloudDatabase.zone('default');
+
+@Entry
+@Component
+export default struct WithdrawMoneyPage {
+  @State fontColor: string = '#182431'
+  @State selectedFontColor: string = '#007DFF'
+  @State currentIndex: number = 0
+  @State alipayAcc:string=''
+  @State bindAlipayName:string=''
+  @State phoneCode:string=''
+  @State user: User|null=null
+  @State allMoney:number=0
+  @Provide
+  isPost:boolean=false
+
+  @Provide
+  moneyNum:number=0
+
+  @State bankList:BindBank[]=[]
+  @State userInfo:UserInfo|null=null
+  @State flag:boolean=false
+
+
+  @State year:string=''
+  @State month:string=''
+  @State day:string=''
+  @State time:string=''
+
+
+
+  async onPageShow(): Promise<void> {
+    const value = await StorageUtils.getAll('user');
+    if (value != "") {
+      this.user = JSON.parse(value)
+    }
+    let databaseZone = cloudDatabase.zone('default');
+    let condition = new cloudDatabase.DatabaseQuery(bind_bank);
+    condition.equalTo("user_id", this.user?.user_id)
+    let listData = await databaseZone.query(condition);
+    let json = JSON.stringify(listData)
+    let data: BindBank[] = JSON.parse(json)
+    if (data.length>0) {
+      this.bankList=data
+    }
+
+
+
+    let condition1=new cloudDatabase.DatabaseQuery(user_info)
+    condition1.equalTo("user_id", this.user?.user_id)
+    let listData1 = await databaseZone.query(condition1)
+    let json1=JSON.stringify(listData1)
+    let data1:UserInfo[] = JSON.parse(json1)
+    this.userInfo=data1[0]
+
+
+    this.formatCurrent()
+
+    this.flag=true
+  }
+
+
+  build() {
+    if (this.flag){
+      Column() {
+        CommonTopBar({ title: "Withdrawal", alpha: 0, titleAlignment: TextAlign.Center ,backButton:true})
+        Column(){
+          BindAlipay({bankList:this.bankList,
+            callback:()=>{
+              router.pushUrl({url:'pages/recycle/card/BindCardPage'})
+            },
+            postCallback:()=>{
+
+            }})
+          InputItem({userInfo:this.userInfo})
+
+          Column({space:15}){
+            Text("Confirm Withdrawal")
+              .width('100%')
+              .fontColor(Color.White)
+              .borderRadius(15)
+              .padding(10)
+              .textAlign(TextAlign.Center)
+              .fontColor(this.isPost?Color.Black:Color.White)
+              .backgroundColor(this.isPost?"#ffff6363":$r('app.color.color_999'))
+              .onClick(async ()=>{
+                if (this.isPost) {
+                  let money=new money_info()
+                  money.id=Math.floor(Math.random() * 1000000)
+                  money.user_id=this.user!.user_id
+                  money.money=String(this.moneyNum)
+                  money.all_money=''
+                  money.money_type='1'
+                  money.address='Bank card withdrawal'
+                  money.year=this.year
+                  money.month=this.month
+                  money.day=this.day
+                  money.time=this.time
+                  money.create_time=this.year+"-"+this.month+"-"+this.day+" "+this.time
+                  let nums =  await databaseZone.upsert(money);
+
+
+
+                  let userData=new user_info()
+                  userData.id=this.userInfo!.id
+                  userData.user_id=this.userInfo!.user_id
+                  userData.sex=this.userInfo!.sex
+                  userData.bind_phone=this.userInfo!.bind_phone
+                  userData.create_time=this.userInfo!.create_time
+                  userData.nickname=this.userInfo!.nickname
+                  userData.head_img=this.userInfo!.head_img
+                  if (this.userInfo?.money!=null) {
+                    userData.money=this.userInfo!.money-this.moneyNum
+                  }else {
+                    userData.money=0
+                  }
+                  if (this.userInfo?.points!=null) {
+                    userData.points=this.userInfo!.points
+                  }else {
+                    userData.points=0
+                  }
+                  let s= await databaseZone.upsert(userData);
+
+                  if (s>0) {
+                    router.pushUrl({url:'pages/recycle/money/SuccessPage'})
+                  }
+                }else {
+                  if (this.moneyNum==0){
+                    showToast("Minimum withdrawal amount is 1 yuan per transaction")
+                  }
+                  if (this.moneyNum>300) {
+                    showToast('Daily limit is 300 yuan, please re-enter')
+                  }
+                  if (this.moneyNum>this.userInfo!.money) {
+                    showToast('Exceeds the maximum withdrawable amount, please re-enter')
+
+                  }
+                }
+              })
+          }
+          .margin({top:50})
+        }
+        .backgroundColor('#F1F3F5')
+        .height('100%')
+        .justifyContent(FlexAlign.Start)
+        .padding(10)
+      }
+
+    }
+  }
+
+  formatCurrent() {
+    const now = new Date();
+
+    const years = now.getFullYear();
+    const months = String(now.getMonth() + 1).padStart(2, '0');
+    const days = String(now.getDate()).padStart(2, '0');
+    const m_hours = String(now.getHours()).padStart(2, '0');
+    const m_minutes = String(now.getMinutes()).padStart(2, '0');
+    const m_seconds = String(now.getSeconds()).padStart(2, '0');
+    this.year=String(years)
+    this.month=months
+    this.day=days
+    this.time=m_hours+":"+m_minutes+":"+m_seconds
+  }
+
+}
