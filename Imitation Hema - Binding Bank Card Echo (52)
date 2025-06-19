@@ -1,0 +1,171 @@
+Technical Stack
+Appgallery connect
+
+Development Preparation
+In the previous section, we implemented the binding of the security lock, all aimed at helping users have a better and safer experience in the withdrawal process. Now we start to formally focus on the withdrawal-related process. First, we perform the binding of the withdrawal bank card. After successful binding, we close the page and echo the data to the withdrawal page.
+
+Functional Analysis
+First, we need to implement the entry of corresponding information. We need to create a corresponding bank card binding page to fill in the information. After the information is filled, the bank card data is submitted to the bindbank table in the cloud. Then, we query the corresponding data in the onPageShow method of the withdrawal page and display it in the card information display module. When operating, it must be associated with our userid.
+
+Code Implementation
+First, we create the corresponding card information entry page.
+
+
+import { bind_bank } from '../../clouddb/bind_bank';
+import { User } from '../../entity/User';
+import { StorageUtils } from '../../utils/StorageUtils';
+import { cloudDatabase } from '@kit.CloudFoundationKit';
+import showToast from '../../utils/ToastUtils';
+import { router, Router } from '@kit.ArkUI';
+import { CommonTopBar } from '../../widget/CommonTopBar';
+
+let databaseZone = cloudDatabase.zone('default');
+
+@Entry
+@Component
+struct BindCardPage {
+  @State cardNum: string = '';
+  @State bankName: string = '';
+  @State peopleName: string = '';
+  @State user: User|null=null
+
+  async aboutToAppear(): Promise<void> {
+
+    const value = await StorageUtils.getAll('user');
+    if (value != "") {
+      this.user = JSON.parse(value)
+    }
+  }
+
+
+  build() {
+    Column({space:5}) {
+      CommonTopBar({ title: "Add Bank Card", alpha: 0, titleAlignment: TextAlign.Center ,backButton:true})
+
+      Row() {
+        Text("Card Number")
+          .fontColor(Color.Black)
+          .fontSize(16)
+          .fontWeight(FontWeight.Bold)
+        TextInput({ text: this.cardNum, placeholder: 'Please enter bank card number' })
+          .placeholderColor("#999999")
+          .placeholderFont({ size: 16, weight: 400 })
+          .caretColor("#FCDB29")
+          .width(400)
+          .height(50)
+          .backgroundColor(null)
+          .type(InputType.Number)
+          .margin(20)
+          .fontSize(14)
+          .fontColor(Color.Black)
+          .onChange((value: string) => {
+            this.cardNum = value
+          })
+      }
+      Divider().width('100%').height(0.8)
+        .color("#e6e6e6")
+        .width('100%')
+      Row() {
+        Text("Bank")
+          .fontColor(Color.Black)
+          .fontSize(16)
+          .fontWeight(FontWeight.Bold)
+        TextInput({ text: this.bankName, placeholder: 'Please enter the bank name' })
+          .placeholderColor("#999999")
+          .placeholderFont({ size: 16, weight: 400 })
+          .caretColor("#FCDB29")
+          .width(400)
+          .height(50)
+          .backgroundColor(null)
+          .margin(20)
+          .fontSize(14)
+          .fontColor(Color.Black)
+          .onChange((value: string) => {
+            this.bankName = value
+          })
+      }
+      Divider().width('100%').height(0.8)
+        .color("#e6e6e6")
+        .width('100%')
+      Row() {
+        Text("Account Name")
+          .fontColor(Color.Black)
+          .fontSize(16)
+          .fontWeight(FontWeight.Bold)
+        TextInput({ text: this.peopleName, placeholder: 'Please enter the account name' })
+          .placeholderColor("#999999")
+          .placeholderFont({ size: 16, weight: 400 })
+          .caretColor("#FCDB29")
+          .width(400)
+          .height(50)
+          .backgroundColor(null)
+          .margin(20)
+          .fontSize(14)
+          .fontColor(Color.Black)
+          .onChange((value: string) => {
+            this.peopleName = value
+          })
+      }
+      Text("Bind")
+
+        .width('95%')
+        .padding(10)
+        .borderRadius(10)
+        .textAlign(TextAlign.Center)
+        .fontColor(Color.White)
+        .backgroundColor("#ffe03636")
+        
+    }
+    .height('100%')
+    .backgroundColor(Color.White)
+  }
+}
+
+After adding, we write the submission method to the binding event.
+
+
+  Text("Bind")
+
+        .width('95%')
+        .padding(10)
+        .borderRadius(10)
+        .textAlign(TextAlign.Center)
+        .fontColor(Color.White)
+        .backgroundColor("#ffe03636")
+        .onClick(async ()=>{
+          let cardInfo=new bind_bank()
+          cardInfo.id=Math.floor(Math.random() * 1000000)
+          cardInfo.user_id=this.user!.user_id
+          cardInfo.bank_name=this.bankName
+          cardInfo.bank_card=this.cardNum
+          cardInfo.bank_people=this.peopleName
+          let num = await databaseZone.upsert(cardInfo);
+          if (num>0) {
+            showToast("Binding successful")
+            router.back()
+          }
+        })
+
+After successful binding, we close the current page and return to the withdrawal page for data query.
+
+
+
+  @State bankList:BindBank[]=[]
+
+async onPageShow(): Promise<void> {
+    const value = await StorageUtils.getAll('user');
+    if (value != "") {
+      this.user = JSON.parse(value)
+    }
+    let databaseZone = cloudDatabase.zone('default');
+    let condition = new cloudDatabase.DatabaseQuery(bind_bank);
+    condition.equalTo("user_id", this.user?.user_id)
+    let listData = await databaseZone.query(condition);
+    let json = JSON.stringify(listData)
+    let data: BindBank[] = JSON.parse(json)
+    if (data.length>0) {
+      this.bankList=data
+
+    }
+  }
+Here we have implemented the binding and echo of the bank card.
