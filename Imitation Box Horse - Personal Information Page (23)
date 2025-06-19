@@ -1,0 +1,286 @@
+Technology Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we implemented the business logic for the personal center, enabling dynamic updates after modifying personal information, and created a static avatar selection pop-up, which we haven’t used yet. In this section, we will utilize this pop-up on the personal information page, along with other pop-ups, to achieve synchronized display and modification of information.
+
+Functional Analysis
+For the personal information page display:
+
+Access the page from the personal center entry.
+Query user-specific information based on user_id and display it on the page.
+Trigger edit pop-ups for modifiable options, update data in the database, and refresh the page in real-time.
+
+Code Implementation
+1. Add Navigation and Data Passing in the Personal Center
+typescript
+.onClick(() => {
+  router.pushUrl({
+    url: 'pages/view/UserInfoPage',
+    params: { id: this.user?.user_id }
+  });
+});
+2. Create Personal Information Display Page
+typescript
+import { cloudDatabase } from '@kit.CloudFoundationKit';
+import { user_info } from '../clouddb/user_info';
+import { UserInfo } from '../entity/UserInfo';
+import { hilog } from '@kit.PerformanceAnalysisKit';
+
+@Entry
+@Component
+struct UserInfoPage {
+  @State str: string = '';
+  @State userInfo: UserInfo | null = null;
+  @State flag: boolean = false;
+  @State typeStr: string = '';
+  private headController: CustomDialogController = new CustomDialogController({/* Avatar dialog configuration */});
+  private dialogController: CustomDialogController = new CustomDialogController({/* Edit dialog configuration */});
+
+  async aboutToAppear(): Promise<void> {
+    const params = (this.getUIContext().getRouter().getParams() as Record<string, number>)['id'];
+    if (params > 0) {
+      const databaseZone = cloudDatabase.zone('default');
+      const condition = new cloudDatabase.DatabaseQuery(user_info).equalTo("user_id", params);
+      const listData = await databaseZone.query(condition);
+      this.userInfo = JSON.parse(JSON.stringify(listData))[0];
+      this.flag = true;
+    }
+  }
+
+  build() {
+    Column() {
+      // Top bar
+      CommonTopBar({ title: "Personal Information", alpha: 0, titleAlignment: TextAlign.Center, backButton: true });
+      
+      if (this.flag) {
+        // Avatar section
+        Row() {
+          Text("Avatar")
+            .fontSize(14)
+            .fontColor(Color.Gray);
+          Blank();
+          Image(this.userInfo?.head_img || '')
+            .width(40)
+            .height(40)
+            .borderRadius(20)
+            .onClick(() => this.headController.open());
+          Image($r('app.media.ic_arrow_bold'))
+            .height(15)
+            .width(15)
+            .margin({ left: 10 });
+        }
+        .padding({ top: 15, bottom: 15 })
+        .width('100%')
+        .justifyContent(FlexAlign.SpaceEvenly);
+        Divider().width('100%').height(0.5).backgroundColor(Color.Gray);
+        
+        // Nickname section
+        Row() {
+          Text("Nickname")
+            .fontSize(14)
+            .fontColor(Color.Gray);
+          Blank();
+          Text(this.userInfo?.nickname || '')
+            .height(40)
+            .borderRadius(20)
+            .fontColor(Color.Gray);
+          Image($r('app.media.ic_arrow_bold'))
+            .height(15)
+            .width(15)
+            .margin({ left: 10 });
+        }
+        .padding({ top: 15, bottom: 15 })
+        .width('100%')
+        .justifyContent(FlexAlign.SpaceEvenly)
+        .onClick(() => {
+          this.str = this.userInfo!.nickname;
+          this.typeStr = 'Nickname';
+          this.dialogController.open();
+        });
+        Divider().width('100%').height(0.5).backgroundColor(Color.Gray);
+        
+        // Gender section
+        Row() {
+          Text("Gender")
+            .fontSize(14)
+            .fontColor(Color.Gray);
+          Blank();
+          Text(this.userInfo?.sex || '')
+            .height(40)
+            .borderRadius(20)
+            .fontColor(Color.Gray);
+          Image($r('app.media.ic_arrow_bold'))
+            .height(15)
+            .width(15)
+            .margin({ left: 10 });
+        }
+        .padding({ top: 15, bottom: 15 })
+        .width('100%')
+        .justifyContent(FlexAlign.SpaceEvenly)
+        .onClick(() => {
+          this.str = this.userInfo!.sex;
+          this.typeStr = 'Gender';
+          this.dialogController.open();
+        });
+        Divider().width('100%').height(0.5).backgroundColor(Color.Gray);
+        
+        // Bound phone number
+        Row() {
+          Text("Bound Phone")
+            .fontSize(14)
+            .fontColor(Color.Gray);
+          Blank();
+          Text(this.userInfo?.bind_phone || '')
+            .height(40)
+            .borderRadius(20)
+            .fontColor(Color.Gray);
+        }
+        .padding({ top: 15, bottom: 15 })
+        .width('100%')
+        .justifyContent(FlexAlign.SpaceEvenly);
+        Divider().width('100%').height(0.5).backgroundColor(Color.Gray);
+        
+        // Registration date
+        Row() {
+          Text("Registration Date")
+            .fontSize(14)
+            .fontColor(Color.Gray);
+          Blank();
+          Text(this.userInfo?.create_time || '')
+            .height(40)
+            .borderRadius(20)
+            .fontColor(Color.Gray);
+        }
+        .padding({ top: 15, bottom: 15 })
+        .width('100%')
+        .justifyContent(FlexAlign.SpaceEvenly);
+        Divider().width('100%').height(0.5).backgroundColor(Color.Gray);
+      }
+    }
+    .padding(10)
+    .backgroundColor(Color.White)
+    .height('100%')
+    .width('100%');
+  }
+}
+3. Implement Avatar Modification Logic
+typescript
+.onClick(async () => {
+  if (this.str) {
+    try {
+      const databaseZone = cloudDatabase.zone('default');
+      const userInfo = new user_info();
+      userInfo.id = this.userInfo!.id;
+      userInfo.user_id = this.userInfo!.user_id;
+      userInfo.head_img = this.str;
+      // Preserve other fields
+      const num = await databaseZone.upsert(userInfo);
+      if (num > 0) {
+        const condition = new cloudDatabase.DatabaseQuery(user_info).equalTo("user_id", userInfo.user_id);
+        const listData = await databaseZone.query(condition);
+        this.userInfo = JSON.parse(JSON.stringify(listData))[0];
+        this.controller.close();
+      }
+    } catch (err) {
+      hilog.info(0x0000, 'testTag', `Upsert succeeded: ${err}`);
+    }
+  } else {
+    showToast("Please select an avatar");
+  }
+});
+4. Create Edit Dialog for Nickname and Gender
+typescript
+import { cloudDatabase } from "@kit.CloudFoundationKit";
+import { user_info } from "../clouddb/user_info";
+import { UserInfo } from "../entity/UserInfo";
+
+@CustomDialog
+export struct EditDialog {
+  controller: CustomDialogController;
+  @Link userInfo: UserInfo | null;
+  @Link str: string;
+  @Prop typeStr: string;
+
+  build() {
+    Column({ space: 20 }) {
+      Text(this.typeStr === 'Nickname' ? "Enter your nickname" : "Enter your gender")
+        .fontSize($r('app.float.size_20'))
+        .fontWeight(FontWeight.Bold)
+        .fontColor(Color.Black)
+        .margin({ top: 20 });
+      
+      TextInput({ text: this.str })
+        .backgroundColor("#f6f6f6")
+        .placeholderColor("#ff999595")
+        .fontColor("#333333")
+        .onChange((value) => this.str = value.toString())
+        .margin(20);
+      
+      Row() {
+        Text("Cancel")
+          .width('30%')
+          .textAlign(TextAlign.Center)
+          .height(40)
+          .fontSize(18)
+          .fontColor(Color.White)
+          .backgroundColor(0xff0000)
+          .borderRadius(30)
+          .onClick(() => this.controller.close());
+        
+        Text("Confirm")
+          .width('30%')
+          .textAlign(TextAlign.Center)
+          .height(40)
+          .fontSize(18)
+          .fontColor(Color.White)
+          .backgroundColor(0xff0000)
+          .borderRadius(30)
+          .onClick(async () => {
+            if (this.str) {
+              try {
+                const databaseZone = cloudDatabase.zone('default');
+                const userInfo = new user_info();
+                userInfo.id = this.userInfo!.id;
+                userInfo.user_id = this.userInfo!.user_id;
+                
+                // Update based on type
+                if (this.typeStr === 'Nickname') userInfo.nickname = this.str;
+                else userInfo.nickname = this.userInfo!.nickname;
+                
+                if (this.typeStr === 'Gender') userInfo.sex = this.str;
+                else userInfo.sex = this.userInfo!.sex;
+                
+                // Preserve other fields
+                userInfo.bind_phone = this.userInfo!.bind_phone;
+                userInfo.create_time = this.userInfo!.create_time;
+                userInfo.head_img = this.userInfo!.head_img;
+                
+                const num = await databaseZone.upsert(userInfo);
+                if (num > 0) {
+                  const condition = new cloudDatabase.DatabaseQuery(user_info).equalTo("user_id", userInfo.user_id);
+                  const listData = await databaseZone.query(condition);
+                  this.userInfo = JSON.parse(JSON.stringify(listData))[0];
+                  this.controller.close();
+                }
+              } catch (err) {
+                hilog.info(0x0000, 'testTag', `Upsert succeeded: ${err}`);
+              }
+            } else {
+              showToast("Please enter information");
+            }
+          });
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.SpaceAround);
+    }
+    .borderRadius({ topLeft: 20, topRight: 20 })
+    .backgroundColor(Color.White)
+    .height(300)
+    .width('100%');
+  }
+}
+
+
+
+The implementation allows modifying the avatar, nickname, and gender on the personal information page, with real-time updates reflected in both the UI and database.
