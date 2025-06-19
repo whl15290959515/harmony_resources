@@ -1,0 +1,227 @@
+Technical Stack
+Appgallery connect
+
+Development Preparation
+In the previous section, we implemented part of the layout and content display for the recycling fund page, as well as the display of the total earnings amount for current orders and the hiding of the amount. In this section, we will implement the display of the current user's income and expenditure list. Before that, we need to modify our recycleinfo table by adding specification-related content to facilitate subsequent logic development, as querying by weightid each time is slightly inconvenient.
+
+Function Analysis
+We have implemented title switching through tabs, but we currently have no content for the operation list. Therefore, we need to create a moneyinfo table, bind it with userid, perform table operations, query the moneyinfo list, filter the desired data based on the moneytype field, and display it in the list. According to different statuses, we need to show whether the current record is income or expenditure to provide users with intuitive display.
+
+Code Implementation
+First, display the structure of the modified recycleinfo table:
+
+
+{
+  "CloudDBZoneName": "default",
+  "objectTypeName": "recycle_info",
+  "fields": [
+    {"fieldName": "id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "user_id", "fieldType": "Integer", "notNull": true, "defaultValue": 0},
+    {"fieldName": "nike_name", "fieldType": "String"},
+    {"fieldName": "phone", "fieldType": "String"},
+    {"fieldName": "address", "fieldType": "String"},
+    {"fieldName": "day", "fieldType": "String"},
+    {"fieldName": "start_time", "fieldType": "String"},
+    {"fieldName": "end_time", "fieldType": "String"},
+    {"fieldName": "msg", "fieldType": "String"},
+    {"fieldName": "weight_id", "fieldType": "String"},
+    {"fieldName": "weight", "fieldType": "String"},
+    {"fieldName": "txt", "fieldType": "String"},
+    {"fieldName": "integral", "fieldType": "Double"},
+    {"fieldName": "money", "fieldType": "Double"},
+    {"fieldName": "create_time", "fieldType": "String"},
+    {"fieldName": "express_code", "fieldType": "String"},
+    {"fieldName": "express_people", "fieldType": "String"},
+    {"fieldName": "express_company", "fieldType": "String"},
+    {"fieldName": "order_type", "fieldType": "Integer"},
+    {"fieldName": "logistics_id", "fieldType": "Integer"}
+  ],
+  "indexes": [
+    {"indexName": "fieldIndexId", "indexList": [{"fieldName":"id","sortType":"DESC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+
+Subsequent operations will use this table structure for CRUD (Create, Read, Update, Delete).
+
+Next, create the corresponding moneyinfo table and add the required fields:
+
+
+{
+  "objectTypeName": "money_info",
+  "fields": [
+    {"fieldName": "id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "user_id", "fieldType": "Integer", "notNull": true, "defaultValue": 0},
+    {"fieldName": "money", "fieldType": "String"},
+    {"fieldName": "all_money", "fieldType": "String"},
+    {"fieldName": "create_time", "fieldType": "String"},
+    {"fieldName": "money_type", "fieldType": "String"},
+    {"fieldName": "address", "fieldType": "String"},
+    {"fieldName": "year", "fieldType": "String"},
+    {"fieldName": "month", "fieldType": "String"},
+    {"fieldName": "day", "fieldType": "String"},
+    {"fieldName": "time", "fieldType": "String"}
+  ],
+  "indexes": [
+    {"indexName": "field1Id", "indexList": [{"fieldName":"id","sortType":"ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+
+Then generate the Server Client Model. Since cash rewards and points are only added after a recycling order is completed, we need to add data submission in the order completion click event and mark the status as income:
+
+
+Text("Order Completed")
+  .fontColor(Color.Black)
+  .fontSize(12)
+  .padding(5)
+  .borderRadius(10)
+  .backgroundColor(Color.Pink)
+  .onClick(async ()=>{
+    let data=new recycle_info()
+    data.id=item.id
+    data.user_id=item.user_id
+    data.nike_name=item.nike_name
+    data.phone=item.phone
+    data.address=item.address
+    data.day=item.day
+    data.start_time=item.start_time
+    data.end_time=item.end_time
+    data.msg=item.msg
+    data.weight_id=item.weight_id
+    data.weight=item.weight
+    data.txt=item.txt
+    data.money=item.money
+    data.integral=item.integral
+    data.create_time=item.create_time
+    data.express_code=item.express_code
+    data.express_people=item.express_people
+    data.express_company=item.express_company
+    data.order_type=3
+    data.logistics_id=item.logistics_id
+    let num = await databaseZone.upsert(data);
+    hilog.info(0x0000, 'testTag', `Succeeded in upserting data, result: ${num}`);
+    if (num>0) {
+      this.onRefresh()
+      showToast("Order completed")
+      let money=new money_info
+      money.id=Math.floor(Math.random() * 1000000)
+      money.user_id=this.user!.user_id
+      money.money=String(item.money)
+      money.all_money=''
+      money.money_type='0'
+      money.address='Client order reward'
+      money.year=this.year
+      money.month=this.month
+      money.day=this.day
+      money.time=this.time
+      money.create_time=this.year+"-"+this.month+"-"+this.day+" "+this.time
+      let nums =  await databaseZone.upsert(money);
+    }
+  })
+
+After submitting the order, the data is added to the cloud database. Next, return to the recycling fund display page to implement data display, taking the display of all orders as an example:
+
+First, create the corresponding list display component:
+
+
+import { MoneyInfo } from '../../../entity/money_info'
+
+@Component
+export struct RecordList {
+  @Prop  recodeList:MoneyInfo[]=[]
+
+  @Builder
+  recordList(){
+    List({ space: 10 }) {
+      ForEach(this.recodeList, (item:MoneyInfo) => {
+            ListItem() {
+                this.allItem(item)
+            }
+      })
+    }
+    .backgroundColor("#f7f7f7").padding({ top: 10 })
+    .sticky(StickyStyle.Header)
+  }
+
+  @Builder
+  allItem(item:MoneyInfo){
+    Row({space:10}){
+      Image(item.money_type=='0'?$r('app.media.shouru'):$r('app.media.tixian'))
+        .height(35)
+        .width(35)
+        .objectFit(ImageFit.Contain)
+        .interpolation(ImageInterpolation.High)
+        .borderRadius(25)
+      Column({space:10}){
+        Text(item.money_type=='0'?"Income":"Withdrawal")
+          .fontColor("#333333")
+          .fontSize(16)
+        Text(item.address)
+          .fontColor("#999999")
+          .fontSize(14)
+      }
+      .alignItems(HorizontalAlign.Start)
+      Blank()
+
+      Column({space:10}){
+        Text(item.money_type=='0'?"¥"+item.money:"-¥"+item.money)
+          .fontColor(item.money_type=='0'?"#00B644":"#EC2400")
+          .fontSize(16)
+          .margin({top:1})
+
+        Text(item.create_time)
+          .fontColor("#999999")
+          .fontSize(14)
+          .margin({top:1})
+      }
+      .alignItems(HorizontalAlign.End)
+    }
+    .justifyContent(FlexAlign.SpaceBetween)
+    .padding({left:12,right:12})
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
+    .height(71)
+    .backgroundColor(Color.White)
+  }
+
+  build() {
+      Column() {
+        this.recordList()
+      }
+      .height('100%')
+      .layoutWeight(1)
+      .width('100%')
+  }
+}
+
+Then reference it in the page's tabs:
+
+
+Tabs({ barPosition: BarPosition.Start, controller: this.controller }) {
+          ForEach(this.arr,(item:string,index)=>{
+            TabContent() {
+              Column(){
+                if (item=='All') {
+                  RecordList({recodeList:this.moneyList})
+                }
+              }
+            }
+            .tabBar(this.TabBuilder(index, item))
+            .borderRadius(10)
+            .backgroundColor(Color.White)
+          })
+        }
+
+
+Execute the code to view the effect. Since we have no expenditure records yet, a modified income record in the database is used to simulate an expenditure display.
