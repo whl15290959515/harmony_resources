@@ -1,0 +1,313 @@
+Technology Stack
+Appgallery Connect
+
+Development Preparation
+In the previous chapter, we implemented order submission and redirection to the order confirmation page after submission. On the order confirmation page, we added an entry for querying orders. When clicking this entry, we need to navigate to a new interface that displays detailed order information by receiving the order ID or order code from the previous interface.
+
+Functional Analysis
+To implement order content display:
+
+Solve the order query problem. Since we created an associated table on the order submission page to place submitted products in a separate table, we need to perform a join query via order_product_id.
+Query the corresponding product list by ID and retrieve the order corresponding to the order_code for display on the page, along with additional information for the user.
+
+Code Implementation
+1. Implement Data Transfer on the Order Confirmation Page
+typescript
+Text("View Order")
+  .fontSize(16)
+  .fontColor(Color.Black)
+  .padding(10)
+  .borderRadius(10)
+  .border({ width: 1, color: Color.Grey })
+  .onClick(() => {
+    router.pushUrl({ url: 'pages/view/OrderDetailsPage', params: { code: this.orderInfo!.order_code } });
+  });
+2. Receive Transferred Data on the Order Details Page
+typescript
+@State orderCode: string = '';
+
+let params = (this.getUIContext().getRouter().getParams() as Record<string, string>)['code'];
+if (params !== undefined && params !== '') {
+  this.orderCode = params;
+}
+3. Query Table Data by orderCode
+typescript
+let databaseZone = cloudDatabase.zone('default');
+let condition = new cloudDatabase.DatabaseQuery(order_list);
+condition.equalTo("order_code", this.orderCode!);
+let listData = await databaseZone.query(condition);
+let json = JSON.stringify(listData);
+let data1: OrderList[] = JSON.parse(json);
+this.orderInfo = data1[0];
+4. Query the Product List by order_product_id
+typescript
+@State orderInfo: OrderList | null = null;
+
+let condition1 = new cloudDatabase.DatabaseQuery(order_product_list);
+condition1.equalTo("order_product_id", data1[0].order_product_id);
+let listData1 = await databaseZone.query(condition1);
+let json1 = JSON.stringify(listData1);
+this.productList = JSON.parse(json1);
+5. Render Page Data and Populate Information
+typescript
+build() {
+  if (this.flag) {
+    Column() {
+      CommonTopBar({ title: "Order Details", alpha: 0, titleAlignment: TextAlign.Center, backButton: true });
+      Scroll() {
+        Column({ space: 10 }) {
+          Column({ space: 15 }) {
+            Text("Buyer has paid")
+              .fontSize(20)
+              .width('100%')
+              .textAlign(TextAlign.Center)
+              .fontColor(Color.Black)
+              .fontWeight(FontWeight.Bold);
+
+            Text("Your purchased items have been arranged, and the seller will ship them soon")
+              .fontSize(16)
+              .fontColor(Color.Black)
+              .width('100%')
+              .textAlign(TextAlign.Center);
+          }
+          .width('100%')
+          .padding(15)
+          .backgroundColor("#fff3574a");
+          Divider().width('100%').height(5).color("#e6e6e6");
+          Column() {
+            Row({ space: 20 }) {
+              Image($r('app.media.order_location'))
+                .height(20)
+                .width(20);
+              Column() {
+                Row() {
+                  Text(this.orderInfo?.nickname)
+                    .fontColor(Color.Black)
+                    .fontSize(16)
+                    .fontWeight(FontWeight.Bold);
+                  Text(this.orderInfo?.phone)
+                    .fontColor(Color.Black)
+                    .fontSize(16)
+                    .fontWeight(FontWeight.Bold)
+                    .margin({ left: 20 });
+                }
+
+                Text(this.orderInfo?.address)
+                  .fontColor(Color.Black)
+                  .fontSize(16)
+                  .margin({ top: 10 });
+              }
+              .padding(10)
+              .alignItems(HorizontalAlign.Start)
+              .width('100%');
+            }
+          }
+          .padding(10)
+          .alignItems(HorizontalAlign.Start)
+          .width('100%');
+          Divider().width('100%').height(0.8).color("#e6e6e6");
+          List({ scroller: this.scroller }) {
+            ForEach(this.productList, (item: OrderProductList, index: number) => {
+              ListItem() {
+                Column() {
+                  Row() {
+                    Row({ space: 10 }) {
+                      Image(item.img)
+                        .height(70)
+                        .width(70)
+                        .margin({ left: 10 })
+                        .borderRadius(10);
+                      Column({ space: 5 }) {
+                        Text(item.name)
+                          .fontColor(Color.Black)
+                          .fontSize(14);
+
+                        Text(item.spec)
+                          .fontColor(Color.Grey)
+                          .fontSize(14);
+
+                        Row() {
+                          Text() {
+                            Span("¥ ")
+                              .fontSize(14)
+                              .fontColor(Color.Red);
+                            Span(item.price + "")
+                              .fontSize(16)
+                              .fontColor(Color.Red);
+                          }
+
+                          Text("¥" + item.originalPrice + "")
+                            .fontColor('#999')
+                            .decoration({
+                              type: TextDecorationType.LineThrough,
+                              color: Color.Gray
+                            })
+                            .fontSize(14)
+                            .margin({ left: 10 });
+                        }
+                        .alignItems(VerticalAlign.Bottom);
+
+                        Text("Selected: " + item.buyAmount)
+                          .fontColor(Color.Black)
+                          .fontColor(Color.Gray)
+                          .fontSize(12);
+                      }
+                      .alignItems(HorizontalAlign.Start);
+                    }
+                    .justifyContent(FlexAlign.Start)
+                    .alignItems(VerticalAlign.Top);
+
+                    Blank();
+
+                    Text("¥ " + item.price * item.buyAmount)
+                      .fontColor(Color.Black)
+                      .fontSize(14);
+                  }
+                  .padding(10)
+                  .width('100%')
+                  .alignItems(VerticalAlign.Top)
+                  .justifyContent(FlexAlign.SpaceBetween);
+
+                  Divider()
+                    .width('100%')
+                    .height(1)
+                    .backgroundColor("#f7f7f7");
+                }
+              }
+            });
+          }
+          .height('auto');
+
+          Row() {
+            Text();
+            Blank();
+            Text() {
+              Span("Total: ")
+                .fontSize(16)
+                .fontColor(Color.Black);
+              Span("¥ ")
+                .fontSize(10)
+                .fontColor(Color.Red);
+              Span(this.price() + "")
+                .fontSize(16)
+                .fontColor(Color.Red);
+            }
+          }
+          .padding(10)
+          .width('100%')
+          .justifyContent(FlexAlign.SpaceBetween);
+          Divider().width('100%').height(5).color("#e6e6e6");
+
+          Text("Order Information")
+            .fontSize(18)
+            .fontColor(Color.Black)
+            .fontWeight(FontWeight.Bold)
+            .margin({ left: 15 });
+          Divider().width('100%').height(5).color("#e6e6e6");
+          Row() {
+            Text("Order Number: ")
+              .fontSize(16)
+              .fontColor(Color.Black);
+            Blank();
+            Text(this.orderInfo?.order_code)
+              .fontColor(Color.Black)
+              .fontSize(14);
+          }
+          .justifyContent(FlexAlign.SpaceBetween)
+          .width('100%')
+          .padding(10);
+
+          Divider().width('100%').height(0.8).color("#e6e6e6");
+
+          Row() {
+            Text("Order Remark: ")
+              .fontSize(16)
+              .fontColor(Color.Black);
+            Blank();
+            Text(this.orderInfo?.order_remark !== '' && this.orderInfo?.order_remark !== null ? this.orderInfo?.order_remark : "None")
+              .fontColor(Color.Black)
+              .fontSize(14);
+          }
+          .justifyContent(FlexAlign.SpaceBetween)
+          .width('100%')
+          .padding(10);
+          Divider().width('100%').height(0.8).color("#e6e6e6");
+          Row() {
+            Text("Payment Method: ")
+              .fontSize(16)
+              .fontColor(Color.Black);
+            Blank();
+            Text("Online Payment")
+              .fontSize(16)
+              .fontColor(Color.Black);
+          }
+          .justifyContent(FlexAlign.SpaceBetween)
+          .width('100%')
+          .padding(10);
+          Divider().width('100%').height(0.8).color("#e6e6e6");
+          Row() {
+            Text("Creation Time: ")
+              .fontSize(16)
+              .fontColor(Color.Black);
+            Blank();
+            Text(this.orderInfo?.order_create_time)
+              .fontColor(Color.Black)
+              .fontSize(14);
+          }
+          .justifyContent(FlexAlign.SpaceBetween)
+          .width('100%')
+          .padding(10);
+          Divider().width('100%').height(0.8).color("#e6e6e6");
+          Row() {
+            Text("Payment Time: ")
+              .fontSize(16)
+              .fontColor(Color.Black);
+            Blank();
+            Text(this.orderInfo?.order_pay_time)
+              .fontColor(Color.Black)
+              .fontSize(14);
+          }
+          .justifyContent(FlexAlign.SpaceBetween)
+          .width('100%')
+          .padding(10);
+
+          Divider().width('100%').height(0.8).color("#e6e6e6")
+            .visibility(this.orderInfo?.order_over_time !== '' ? Visibility.Visible : Visibility.None);
+
+          Row() {
+            Text("Completion Time: ")
+              .fontSize(16)
+              .fontColor(Color.Black);
+            Blank();
+            Text(this.orderInfo?.order_over_time)
+              .fontColor(Color.Black)
+              .fontSize(14);
+          }
+          .visibility(this.orderInfo?.order_over_time !== null && this.orderInfo.order_over_time !== '' ? Visibility.Visible : Visibility.None)
+          .justifyContent(FlexAlign.SpaceBetween)
+          .width('100%')
+          .padding(10);
+        }
+        .margin({ bottom: 50 })
+        .backgroundColor(Color.White)
+        .alignItems(HorizontalAlign.Start);
+      }
+      .height('100%')
+      .width('100%');
+    }
+  }
+}
+
+price(): number {
+  let number = 0;
+  for (let i = 0; i < this.productList.length; i++) {
+    number += this.productList[i].buyAmount * this.productList[i].price;
+  }
+  return number;
+}
+
+
+
+
+
+This completes the display of order details.
