@@ -1,0 +1,216 @@
+Technical Stack
+Appgallery connect
+
+Development Preparation
+In the previous section, we implemented adding items to the shopping cart and a simple display of the cart list. For an e-commerce application, this is clearly insufficient. The shopping cart should be more feature-rich, allowing users to independently select items for checkout, delete unnecessary items, or cancel items not needed for the current checkout. Additionally, based on selections, relevant information such as prices and quantities should be presented to users to save time.
+
+Functional Analysis
+1. Product Selection
+Use parameters defined in the table to implement conditional judgments. When an item is selected or unselected, modify the isNeedPay status in the data source and render the list accordingly.
+2. Quantity Adjustment
+Adjust the pre-defined buyAmount field for quantity increments/decrements. Implement data validation to prevent negative quantities and refresh the corresponding list item status upon changes.
+3. Item Deletion
+Use swipeAction for ListItem to implement deletion. Define the deletion UI style and write related logic in the click event.
+4. Price Calculation
+Calculate the total price and quantity of selected items. Invoke the calculation in selection and quantity adjustment events to ensure real-time updates with status changes.
+
+Code Implementation
+typescript
+import { CartProductList } from "../entity/CartProductList";
+import { cloudDatabase } from "@kit.CloudFoundationKit";
+import { cart_product_list } from "../clouddb/cart_product_list";
+import { hilog } from "@kit.PerformanceAnalysisKit";
+import showToast from "../utils/ToastUtils";
+
+let databaseZone = cloudDatabase.zone('default');
+
+@Preview
+@Component
+export struct CartList {
+  @State productList: CartProductList[] = [];
+  @State flag: boolean = false;
+  @State checkCount: number = 0;
+  @State allPrice: number = 0;
+  @State allOriginalPrice: number = 0;
+  private scroller: ListScroller = new ListScroller();
+
+  async aboutToAppear(): Promise<void> {
+    let condition = new cloudDatabase.DatabaseQuery(cart_product_list);
+    let listData = await databaseZone.query(condition);
+    let json = JSON.stringify(listData);
+    this.productList = JSON.parse(json);
+    hilog.info(0x0000, 'testTag', `Succeeded in upserting data, result: ${listData}`);
+    this.getCountPrice();
+    this.flag = true;
+  }
+
+  @Builder itemEnd(item: CartProductList) {
+    Row() {
+      Button('Delete').margin(4)
+        .onClick(() => {
+          let index = this.productList.indexOf(item);
+          this.productList.splice(index, 1);
+        })
+    }.padding(10).justifyContent(FlexAlign.SpaceEvenly);
+  }
+
+  build() {
+    Column() {
+      if (this.flag) {
+        List({ scroller: this.scroller }) {
+          ForEach(this.productList, (item: CartProductList, index: number) => {
+            ListItem() {
+              Row() {
+                Image(item.isNeedPay ? $r('app.media.cart_check') : $r('app.media.cart_no_check'))
+                  .height(20)
+                  .width(20)
+                  .objectFit(ImageFit.Contain)
+                  .onClick(() => {
+                    if (item.isNeedPay) {
+                      item.isNeedPay = false;
+                      this.productList[index] = new CartProductList(
+                        item.id, item.productId, item.productSpecId, item.productName, item.productSpecName,
+                        item.buyAmount, item.isNeedPay, item.activityType, item.productImgAddress,
+                        item.productOriginalPrice, item.productPrice, item.couponPrice
+                      );
+                    } else {
+                      item.isNeedPay = true;
+                      this.productList[index] = new CartProductList(
+                        item.id, item.productId, item.productSpecId, item.productName, item.productSpecName,
+                        item.buyAmount, item.isNeedPay, item.activityType, item.productImgAddress,
+                        item.productOriginalPrice, item.productPrice, item.couponPrice
+                      );
+                      this.getCountPrice();
+                    }
+                  });
+                Image(item.productImgAddress)
+                  .height(120)
+                  .width(120)
+                  .margin({ left: 10 });
+                Column() {
+                  Text(item.productName)
+                    .fontColor(Color.Black)
+                    .fontSize(16);
+                  Text(item.productSpecName)
+                    .fontColor(Color.Grey)
+                    .fontSize(14);
+                  Text() {
+                    Span("¥ ")
+                      .fontSize(14)
+                      .fontColor(Color.Red);
+                    Span(item.productPrice + "")
+                      .fontSize(22)
+                      .fontColor(Color.Red);
+                  }
+                  Text("¥" + item.productOriginalPrice + "")
+                    .fontColor('#999')
+                    .decoration({
+                      type: TextDecorationType.LineThrough,
+                      color: Color.Gray
+                    })
+                    .fontSize(16)
+                    .margin({ left: 10 });
+                }
+                Row() {
+                  Text(" - ")
+                    .textAlign(TextAlign.Center)
+                    .border({ width: 0.5, color: Color.Gray })
+                    .fontSize(14)
+                    .height(20)
+                    .padding({ left: 7, right: 7 })
+                    .fontColor(Color.Black)
+                    .onClick(() => {
+                      if (item.buyAmount === 1) {
+                        showToast("Minimum quantity reached");
+                      } else {
+                        item.buyAmount--;
+                        this.productList[index] = new CartProductList(
+                          item.id, item.productId, item.productSpecId, item.productName, item.productSpecName,
+                          item.buyAmount, item.isNeedPay, item.activityType, item.productImgAddress,
+                          item.productOriginalPrice, item.productPrice, item.couponPrice
+                        );
+                        this.getCountPrice();
+                      }
+                    })
+                    .borderRadius({ topLeft: 5, bottomLeft: 5 });
+                  Text(item.buyAmount + "")
+                    .textAlign(TextAlign.Center)
+                    .fontColor(Color.Black)
+                    .fontSize(14)
+                    .height(20)
+                    .padding({ left: 20, right: 20 })
+                    .border({ width: 0.5, color: Color.Gray });
+                  Text(" + ")
+                    .textAlign(TextAlign.Center)
+                    .fontColor(Color.Black)
+                    .fontSize(14)
+                    .height(20)
+                    .padding({ left: 7, right: 7 })
+                    .onClick(() => {
+                      item.buyAmount++;
+                      this.productList[index] = new CartProductList(
+                        item.id, item.productId, item.productSpecId, item.productName, item.productSpecName,
+                        item.buyAmount, item.isNeedPay, item.activityType, item.productImgAddress,
+                        item.productOriginalPrice, item.productPrice, item.couponPrice
+                      );
+                      this.getCountPrice();
+                    })
+                    .border({ width: 0.5, color: Color.Gray })
+                    .borderRadius({ topRight: 5, bottomRight: 5 });
+                }
+                .justifyContent(FlexAlign.SpaceBetween);
+              }
+              .padding(10)
+              .alignItems(VerticalAlign.Center);
+            }
+            .swipeAction({
+              end: {
+                builder: () => { this.itemEnd(item) },
+                actionAreaDistance: 56
+              }
+            });
+          })
+        }
+        .height('auto')
+        .layoutWeight(1);
+      }
+      Row() {
+        Text("Total:")
+          .fontColor(Color.Black);
+        Text() {
+          Span("¥ ")
+            .fontSize(14)
+            .fontColor(Color.Red);
+          Span(this.allPrice.toFixed(2))
+            .fontSize(22)
+            .fontColor(Color.Red);
+        }
+        Blank();
+        Text("Checkout (" + this.checkCount + ")")
+          .fontColor(Color.White)
+          .padding(10)
+          .borderRadius(20)
+          .backgroundColor('#ccfa1818');
+      }
+      .justifyContent(FlexAlign.SpaceBetween)
+      .padding(10);
+    }
+  }
+
+  getCountPrice() {
+    this.allPrice = 0;
+    this.allOriginalPrice = 0;
+    this.checkCount = 0;
+    for (let i = 0; i < this.productList.length; i++) {
+      if (this.productList[i].isNeedPay) {
+        this.checkCount += this.productList[i].buyAmount;
+        this.allPrice += this.productList[i].productPrice * this.productList[i].buyAmount;
+        this.allOriginalPrice += this.productList[i].productOriginalPrice * this.productList[i].buyAmount;
+      }
+    }
+  }
+}
+
+
+
+The code implements the functional requirements, including product selection, quantity adjustment, deletion, and real-time price calculation. When running, the cart list will display selected items with accurate total prices and quantities, allowing users to manage their cart effectively.
