@@ -1,0 +1,222 @@
+Technology Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we improved the functionality of some static buttons on the home page. In this section, we will enhance the logic of existing features. Through testing, we found that after logging in initially, the status of the current page is not immediately displayed, and the logout function is missing. After logging out, we should also promptly modify the page to the unlogged state. The about function on the personal center page is missing. In this section, we will complete the corresponding content.
+
+Functional Analysis
+To implement status modification, we use an emitter for communication between the login and logout pages to send and receive messages. In the callback after successful message reception, we modify the parameters of the current page and destroy the stored user information. For the about page, we directly add information about the current application and the author. To facilitate students in viewing other content, we use a webview in the about section to display a personal homepage on a certain platform, where the latest article list can be viewed. We also add a logout button and corresponding logic to the personal information page.
+
+Code Implementation
+First, modify the login page to add corresponding logic for sending the login status:
+
+typescript
+async login(): Promise<void> {
+  if (this.acc === '' && this.psw === '') {
+    promptAction.showToast({ message: "Please enter the account or password" });
+    return;
+  } else {
+    const condition = new cloudDatabase.DatabaseQuery(user);
+    condition.equalTo("user_name", this.acc).and().equalTo("psw", this.psw);
+    const listData = await databaseZone.query(condition);
+
+    const json = JSON.stringify(listData);
+    const data1: User[] = JSON.parse(json);
+    if (data1.length > 0) {
+      if (data1[0].is_log_off) {
+        promptAction.showDialog({
+          title: 'Prompt',
+          message: 'This account has been注销 (canceled)',
+          buttons: [
+            {
+              text: 'Take Action',
+              color: '#ffffff'
+            },
+            {
+              text: 'Close',
+              color: '#ffffff'
+            }
+          ],
+        })
+          .then(data => {
+            showToast(data.index + "");
+            console.info('showDialog success, click button: ' + data.index);
+          })
+          .catch((err: Error) => {
+            console.info('showDialog error: ' + err);
+          });
+      } else {
+        const eventData: emitter.EventData = {
+          data: {}
+        };
+
+        const innerEvent: emitter.InnerEvent = {
+          eventId: 2001,
+          priority: emitter.EventPriority.HIGH
+        };
+
+        emitter.emit(innerEvent, eventData);
+        StorageUtils.set("user", JSON.stringify(data1[0]));
+        router.back({
+          url: 'pages/Index',
+          params: {
+            info: user
+          }
+        });
+      }
+    } else {
+      showToast("Please check the username or password");
+    }
+    hilog.info(0x0000, 'testTag', `Succeeded in querying data, result: ${data1}`);
+  }
+}
+
+Here, after notification, we receive the message in the my page component, query user information, assign values, and modify the page status:
+
+typescript
+aboutToAppear(): void {
+  const innerEvent: emitter.InnerEvent = {
+    eventId: 2001
+  };
+  const callback: Callback<emitter.EventData> = async (eventData: emitter.EventData) => {
+    console.info(`eventData: ${JSON.stringify(eventData)}`);
+    const value = await StorageUtils.getAll('user');
+    if (value !== "") {
+      this.user = JSON.parse(value);
+      if (this.user !== null) {
+        const databaseZone = cloudDatabase.zone('default');
+        const condition = new cloudDatabase.DatabaseQuery(user_info);
+        condition.equalTo("user_id", this.user?.user_id);
+        const listData = await databaseZone.query(condition);
+        const json = JSON.stringify(listData);
+        const data2: UserInfo[] = JSON.parse(json);
+        this.userInfo = data2[0];
+        hilog.error(0x0000, 'testTag', `Failed to query data, code: ${data2}`);
+      }
+    } else {
+      this.userInfo = null;
+      this.user = null;
+    }
+  };
+  emitter.on(innerEvent, callback);
+}
+
+After completion, we add a logout button on the personal information page, send events, and clear user information cache:
+
+typescript
+Text("Logout")
+  .width('50%')
+  .height(45)
+  .fontColor(Color.White)
+  .fontSize(16)
+  .textAlign(TextAlign.Center)
+  .backgroundColor("#fffc1515")
+  .borderRadius(10)
+  .margin({ top: 20 })
+  .onClick(() => {
+    StorageUtils.remove('user');
+    router.back();
+    const eventData: emitter.EventData = {
+      data: {}
+    };
+
+    const innerEvent: emitter.InnerEvent = {
+      eventId: 2001,
+      priority: emitter.EventPriority.HIGH
+    };
+
+    emitter.emit(innerEvent, eventData);
+  })
+
+Next, we implement the logic for the about page, which only needs to populate corresponding information. Note the event for jumping to the web page:
+
+typescript
+import { CommonTopBar } from '../widget/CommonTopBar';
+import { router } from '@kit.ArkUI';
+import { WebUrlModel } from '../model/WebUrlModel';
+
+@Entry
+@Component
+struct AboutPage {
+  @State message: string = 'Hello World';
+
+  build() {
+    Column() {
+      CommonTopBar({ title: "About", alpha: 0, titleAlignment: TextAlign.Center, backButton: true });
+      Column({ space: 20 }) {
+        Image($r('app.media.e_logo'))
+          .height(200)
+          .width(200)
+          .borderRadius(10)
+          .margin({ top: 20 });
+
+        Text("A cloud-integrated shopping App")
+          .fontSize(16)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(Color.Black);
+
+
+        Text("Developer: Hongmeng Xiaolin")
+          .fontSize(16)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(Color.Black);
+
+
+
+        Text("Click to view the app's corresponding explanatory articles")
+          .fontSize(16)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(Color.Blue)
+          .onClick(() => {
+            const url: WebUrlModel = {
+              url: 'https://blog.csdn.net/qq_43238112?spm=1001.2014.3001.10640'
+            };
+            router.pushUrl({ url: 'pages/view/WebPage', params: url });
+          });
+      }
+      .backgroundColor(Color.White)
+      .height('100%')
+      .width('100%')
+      .alignItems(HorizontalAlign.Center);
+    }
+    .height('100%')
+    .width('100%');
+  }
+}
+
+After clicking, it jumps to the corresponding web display page:
+
+typescript
+import { webview } from '@kit.ArkWeb';
+import { router } from '@kit.ArkUI';
+import { WebUrlModel } from '../model/WebUrlModel';
+import { CommonTopBar } from '../widget/CommonTopBar';
+
+@Entry
+@Component
+struct WebPage {
+  @State urlInfo: WebUrlModel = null!;
+  @State mode: MixedMode = MixedMode.All;
+
+  aboutToAppear(): void {
+    this.urlInfo = router.getParams() as WebUrlModel;
+  }
+
+  webController: webview.WebviewController = new webview.WebviewController();
+
+  build() {
+    Column() {
+      CommonTopBar({ title: "My Homepage", alpha: 0, titleAlignment: TextAlign.Center, backButton: true });
+      Web({ src: this.urlInfo.url, controller: this.webController })
+        .height('100%')
+        .width('100%')
+        .mixedMode(this.mode)
+        .domStorageAccess(true);
+    }
+    .height('100%')
+    .width('100%');
+  }
+}
+
+
+Executing the code to view the display effect of the webview page completes the business logic improvement of existing features.
