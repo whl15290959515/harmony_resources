@@ -1,0 +1,200 @@
+Technical Stack
+Appgallery Connect
+
+Development Preparation
+In the previous article, we implemented the product activity entrance list for the home page. Now, we'll complete the implementation of the banner module, which supports various actions such as navigation, dialogs, upgrade prompts, and information displays. The action field in the banner table will determine the behavior when clicked, and the is_login field will check if user authentication is required.
+
+Code Implementation
+1. Create Banner Table (home_banner)
+json
+{
+  "objectTypeName": "home_banner",
+  "fields": [
+    {"fieldName": "id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "banner_id", "fieldType": "Integer", "notNull": true, "defaultValue": 0},
+    {"fieldName": "url", "fieldType": "String"},
+    {"fieldName": "is_login", "fieldType": "Boolean"},
+    {"fieldName": "router", "fieldType": "String"}, // Corrected type from Boolean to String
+    {"fieldName": "action_id", "fieldType": "Integer"},
+    {"fieldName": "action", "fieldType": "String"}
+  ],
+  "indexes": [
+    {"indexName": "banner_id", "indexList": [{"fieldName":"banner_id","sortType":"ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+2. Populate Banner Data
+json
+{
+  "cloudDBZoneName": "default",
+  "objectTypeName": "home_banner",
+  "objects": [
+    {
+      "id": 10,
+      "banner_id": 1,
+      "url": "Online Image URL",
+      "is_login": true,
+      "router": "",
+      "action_id": 10,
+      "action": "toast"
+    },
+    {
+      "id": 20,
+      "banner_id": 0,
+      "url": "Online Image URL",
+      "is_login": false,
+      "router": "",
+      "action_id": 20,
+      "action": "dialog"
+    }
+  ]
+}
+3. Create Banner Component (HomeBannerPage.ets)
+typescript
+import { HomeBanner } from "../entity/HomeBanner"
+import showToast from "../utils/ToastUtils"
+import router from '@ohos.router'; // Import router for navigation
+import promptAction from '@ohos.promptAction'; // Import prompt for dialogs
+
+@Component
+@Preview
+export struct HomeBannerPage {
+  // Data source
+  @Link bannerList: HomeBanner[]
+  // Current index for swiper
+  @State swpIndex: number = 0
+  
+  build() {
+    Column() {
+      Swiper() {
+        ForEach(this.bannerList, (item: HomeBanner) => {
+          Image(item.url)
+            .width('100%')
+            .height(130)
+            .borderRadius(10)
+            .onClick(() => {
+              // Check if login is required
+              if (item.is_login && !this.isUserLoggedIn()) {
+                this.navigateToLogin();
+                return;
+              }
+              
+              // Handle actions based on action type
+              switch (item.action) {
+                case 'toast':
+                  showToast("Banner clicked: " + item.action_id);
+                  break;
+                case 'dialog':
+                  this.showDialog(item.action_id);
+                  break;
+                case 'router':
+                  this.navigateToPage(item.router);
+                  break;
+                case 'upgrade':
+                  this.promptUpgrade(item.action_id);
+                  break;
+                default:
+                  showToast("Unsupported action: " + item.action);
+              }
+            })
+        })
+      }
+      .borderRadius(10)
+      .loop(true)
+      .indicator(true)
+      .height(130)
+      .onChange((index: number) => {
+        this.swpIndex = index;
+      })
+    }
+    .padding(10)
+    .margin({ top: 10 })
+  }
+  
+  // Helper methods for action handling
+  private isUserLoggedIn(): boolean {
+    // Check user login status (simplified)
+    return false; // Replace with actual login check
+  }
+  
+  private navigateToLogin(): void {
+    router.pushUrl({
+      url: 'pages/Login'
+    });
+  }
+  
+  private navigateToPage(routerUrl: string): void {
+    if (routerUrl) {
+      router.pushUrl({
+        url: routerUrl
+      });
+    }
+  }
+  
+  private showDialog(actionId: number): void {
+    promptAction.showDialog({
+      message: `Dialog triggered by banner ${actionId}`,
+      buttons: [
+        { text: 'OK', color: '#007DFF' }
+      ]
+    });
+  }
+  
+  private promptUpgrade(actionId: number): void {
+    // Implement upgrade prompt logic
+    promptAction.showDialog({
+      message: `New version available! (Action ID: ${actionId})`,
+      buttons: [
+        { text: 'Upgrade', color: '#007DFF' },
+        { text: 'Later', color: '#888888' }
+      ]
+    });
+  }
+}
+4. Home Page Integration
+typescript
+// In the home page component
+@State bannerList: HomeBanner[] = [];
+
+async fetchBannerData() {
+  try {
+    let databaseZone = cloudDatabase.zone('default');
+    let query = new cloudDatabase.DatabaseQuery(home_banner);
+    
+    // Filter by banner_id from configuration
+    query.equalTo("banner_id", this.homeActivity[0]?.banner_id || 0);
+    
+    let listData = await databaseZone.query(query);
+    this.bannerList = JSON.parse(JSON.stringify(listData));
+  } catch (err) {
+    hilog.error(0x0000, 'testTag', `Failed to fetch banners: ${err.message}`);
+  }
+}
+
+build() {
+  Column() {
+    // Banner component
+    if (this.homeActivity[0]?.banner_status && this.bannerList.length > 0) {
+      HomeBannerPage({ bannerList: this.bannerList })
+    }
+    
+    // Other components...
+  }
+}
+Implementation Result
+The banner module now supports:
+
+Login Check: Verifies user authentication status before performing actions.
+Action Handling:
+toast: Shows a toast message.
+dialog: Displays a dialog box.
+router: Navigates to a specified page.
+upgrade: Prompts the user for an app upgrade.
+Dynamic Configuration: Actions and login requirements are configured via the cloud database.
+
+This completes the implementation of the banner module with dynamic action handling and authentication checks.
