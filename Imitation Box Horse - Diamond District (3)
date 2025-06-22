@@ -44,7 +44,7 @@ json
     {
       "split_id": 10,
       "txt": "Fruits & Meat",
-      "url": "https://img1.baidu.com/it/u=127983369,1101113571&fm=253&fmt=auto&app=120&f=JPEG?w=1200&h=800",
+      "url": "Online image link",
       "router": "string1",
       "is_login": false,
       "bt_state": 0
@@ -52,7 +52,7 @@ json
     {
       "split_id": 20,
       "txt": "Frozen Seafood",
-      "url": "https://t13.baidu.com/it/u=1474213786,2966213209&fm=224&app=112&f=JPEG?w=500&h=500",
+      "url": "Online image link",
       "router": "string2",
       "is_login": false,
       "bt_state": 0
@@ -61,7 +61,7 @@ json
     {
       "split_id": 201,
       "txt": "Cross-border Duty-free",
-      "url": "https://img2.baidu.com/it/u=2092549382,2878882335&fm=253&fmt=auto&app=138&f=JPEG?w=500&h=664",
+      "url": "Online image link",
       "router": "string2",
       "is_login": false,
       "bt_state": 0
