@@ -171,10 +171,6 @@ build() {
     // Other modules...
   }
 }
-Implementation Result
-After running the application:
 
-The product activity entrances (from home_good_center) are displayed based on the linked ID (good_left_id) retrieved from the configuration table (home_activity_setting).
-Modifying the good_left_id in the configuration table will dynamically update the displayed product activities.
 
 This completes the implementation of activity configuration with linked data tables, enabling flexible management of home page modules through backend configuration.
