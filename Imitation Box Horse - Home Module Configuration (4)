@@ -143,13 +143,3 @@ build() {
     // Other modules...
   }
 }
-
-
-
-Implementation Result
-After querying the configuration data:
-
-The navigation bar (Golden Section) is displayed when split_layout_status is true.
-Modify split_layout_status to false in the cloud database, and the navigation bar will dynamically disappear from the UI.
-
-This completes the implementation of dynamic module visibility control for the home page, allowing real-time adjustments without app recompilation.
