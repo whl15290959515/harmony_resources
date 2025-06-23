@@ -225,17 +225,7 @@ build() {
     // Product list and other content...
   }
 }
-Key Implementation Points
-Address Selection:
-Uses sceneMap.selectDistrict to trigger the built-in address picker.
-Saves the selected address using @Storage for persistence.
-Dynamically updates home page activities based on the location (e.g., hiding region-specific activities).
-Membership Code Generation:
-Uses ScanKit's generateBarcode for 1D codes (CODE39) and native QRCode component for 2D codes.
-Combines user ID and timestamp to create unique codes (simulated until login is implemented).
-Provides a refresh mechanism for code regeneration.
-UI Integration:
-The top toolbar displays the selected address with a dropdown arrow for interaction.
-The membership code section is embedded in the home page for quick access.
+
+
 
 This implementation completes the address selection and membership code display, enhancing the home page's functionality and preparing it for further business logic integration.
