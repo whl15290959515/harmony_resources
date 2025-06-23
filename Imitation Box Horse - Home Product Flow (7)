@@ -223,16 +223,6 @@ build() {
     // Remaining content...
   }
 }
-Implementation Highlights
-Comprehensive Product Information
-The table includes fields for pricing (price, original_price), promotions (promotion_spread_price, coupon_id), inventory (amount, max_loop_amount), and more, supporting complex e-commerce logic.
-Visual Design with WaterFlow Layout
-Uses the WaterFlow component for a responsive grid layout, adapting to screen width (2 columns for widths >600, 1 column otherwise).
-Displays original prices with a strikethrough effect, highlights discounts in red, and shows purchase limits with colored tags.
-Interactive Elements
-Image placeholders for product images.
-Cart icon for adding products, with a click event 预留 for navigation to the product detail page.
-Dynamic Content Control
-Hides discount tags and purchase limits when irrelevant (e.g., promotion_spread_price = 0 or amount = 0).
+
 
 This implementation completes the home page product list, providing a foundation for future features like coupon redemption, inventory management, and detailed product navigation.
