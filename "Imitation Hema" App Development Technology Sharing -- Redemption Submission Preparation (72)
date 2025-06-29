@@ -1,0 +1,232 @@
+
+Technology Stack
+AppGallery Connect
+Development Preparation
+In the previous section, we implemented address selection and product data display. However, the page still lacks some components for submitting redemption requests. We need to add components to display redemption details, implement a remark function via a popup, and show points-related information (such as current points, points to be used, and remaining points) to inform users of their points status.
+Functionality Analysis
+Redemption details: Directly retrieve and display from product details.
+Remark function: Implement via a custom popup dialog.
+Points information: Query the user's current points, points to be deducted, remaining points, etc., and display them for user reference.
+Code Implementation
+First, display redemption product details on the page:
+
+typescript
+@State remark: string = ''
+
+Row() {
+  Text()
+  Blank()
+  Text("Total 1 item")
+    .fontSize(12)
+    .fontColor(Color.Gray)
+  Text("Points subtotal:")
+    .fontColor(Color.Gray)
+    .fontSize(12)
+    .margin({ left: 15 })
+  Text() {
+    Span("$")
+      .fontSize(12)
+      .fontColor(Color.Red)
+    Span(String(this.pointsProduct?.points))
+      .fontSize(12)
+      .fontColor(Color.Red)
+  }
+}
+.padding(10)
+.width('100%')
+.justifyContent(FlexAlign.SpaceBetween)
+Row() {
+  Text("Order Remarks")
+    .fontSize(14)
+    .fontColor(Color.Black)
+  Blank()
+  Text(this.remark !== "" ? this.remark : "Optional, please write remarks")
+    .fontColor(Color.Gray)
+    .fontSize(12)
+    .onClick(() => {
+    })
+  Image($r('app.media.right'))
+    .height(15)
+    .width(15)
+}
+.width('100%')
+.padding(10)
+.justifyContent(FlexAlign.SpaceBetween)
+Divider()
+  .width('100%')
+  .height(10)
+  .backgroundColor("#f7f7f7")
+Row() {
+  Text("Total Points")
+    .fontSize(14)
+    .fontColor(Color.Black)
+  Text() {
+    Span("¥ ")
+      .fontSize(12)
+      .fontColor(Color.Black)
+    Span(this.pointsProduct?.points + "")
+      .fontSize(12)
+      .fontColor(Color.Black)
+  }
+}
+.padding(10)
+.width('100%')
+.justifyContent(FlexAlign.SpaceBetween)
+}
+.layoutWeight(1)
+Row({ space: 10 }) {
+  Text("Total 1 item")
+    .fontSize(14)
+    .fontColor(Color.Black)
+  Blank()
+  Text() {
+    Span("Points deducted:")
+    Span("$ ")
+      .fontSize(10)
+      .fontColor(Color.Red)
+    Span(this.pointsProduct?.points + "")
+      .fontSize(16)
+      .fontColor(Color.Red)
+  }
+  Text("Confirm Redemption")
+    .fontColor(Color.White)
+    .padding(10)
+    .borderRadius(10)
+    .backgroundColor("#d81e06")
+    .fontSize(14)
+    .onClick(async () => {
+    })
+}
+.padding(20)
+.justifyContent(FlexAlign.SpaceBetween)
+.width('100%')
+
+Implement the remark popup dialog:
+
+typescript
+import showToast from "../utils/ToastUtils";
+
+@Preview
+@CustomDialog
+export struct PointsOrderRemarkDialog {
+  controller: CustomDialogController;
+  @Link str: string;
+  build() {
+    Column({ space: 20 }) {
+      Text("Remarks")
+        .fontSize($r('app.float.size_20'))
+        .fontWeight(FontWeight.Bold)
+        .fontColor(Color.Black)
+        .margin({ top: 20 })
+      TextArea({ text: this.str })
+        .backgroundColor("#f6f6f6")
+        .placeholderColor("#ff999595")
+        .fontColor("#333333")
+        .height(150)
+        .maxLength(50)
+        .onChange((value: String) => {
+          if (value.length > 50) {
+            showToast("Maximum 50 characters~");
+            return;
+          } else {
+            this.str = value.toString();
+          }
+        })
+        .margin(20)
+      Row() {
+        Text("Cancel")
+          .width('30%')
+          .textAlign(TextAlign.Center)
+          .height(40)
+          .fontSize(18)
+          .fontColor(Color.White)
+          .backgroundColor(0xff0000)
+          .borderRadius(30)
+          .margin({ top: 30 })
+          .onClick(() => {
+            this.str = '';
+            this.controller.close();
+          })
+        Text("Confirm")
+          .width('30%')
+          .textAlign(TextAlign.Center)
+          .height(40)
+          .fontSize(18)
+          .fontColor(Color.White)
+          .backgroundColor(0xff0000)
+          .borderRadius(30)
+          .margin({ top: 30 })
+          .onClick(async () => {
+            if (this.str !== '') {
+              this.controller.close();
+            } else {
+              this.str = '';
+              this.controller.close();
+            }
+          })
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.SpaceAround)
+    }
+    .borderRadius({ topLeft: 20, topRight: 20 })
+    .justifyContent(FlexAlign.Start)
+    .backgroundColor(Color.White)
+    .height(400)
+    .width('100%')
+  }
+}
+
+Reference the remark popup dialog:
+
+typescript
+orderController: CustomDialogController | null = new CustomDialogController({
+  builder: PointsOrderRemarkDialog({
+    str: this.remark
+  }),
+  alignment: DialogAlignment.Bottom,
+  customStyle: true
+});
+Text(this.remark !== "" ? this.remark : "Optional, please write remarks")
+  .fontColor(Color.Gray)
+  .fontSize(12)
+  .onClick(() => {
+    this.orderController?.open();
+  })
+
+Display remaining points on the page:
+
+typescript
+@State userInfo: UserInfo | null = null
+
+const value = await StorageUtils.getAll('user');
+if (value !== '') {
+  this.user = JSON.parse(value);
+}
+let condition = new cloudDatabase.DatabaseQuery(user_info);
+condition.equalTo("user_id", this.user?.user_id);
+let listData = await databaseZone.query(condition);
+let json1 = JSON.stringify(listData);
+let data2: UserInfo[] = JSON.parse(json1);
+this.userInfo = data2[0];
+
+Row() {
+  Text("Remaining Points")
+    .fontSize(14)
+    .fontColor(Color.Black)
+  Text() {
+    Span("$ ")
+      .fontSize(12)
+      .fontColor(Color.Black)
+    Span(this.userInfo!.points - this.pointsProduct!.points + "")
+      .fontSize(12)
+      .fontColor(Color.Black)
+  }
+}
+.padding(10)
+.width('100%')
+.justifyContent(FlexAlign.SpaceBetween)
+
+
+
+
+This completes the preparation for redemption submission.
