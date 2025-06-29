@@ -1,0 +1,207 @@
+
+Technology Stack
+AppGallery Connect
+Development Preparation
+In the previous section, we implemented the basic framework of the points page. Now we will focus on populating and querying data. Currently, points-related content is only added after recycling orders are settled. To query corresponding points data, we need to create a new points information table.
+Functionality Analysis
+Points-related functions include order settlement and subsequent points redemption. We will first implement the addition of points during order settlement and calculate the total points in the user information table.
+
+When clicking the confirmation button on the recycling order pending completion page, add data and use type to distinguish points status (income or expenditure).
+Modify the points information in userinfo and query points data in the "All" tab of the points list for display.
+Code Implementation
+First, create the corresponding table, entity, and DB class:
+Table Structure (points_info.json)
+json
+{
+  "objectTypeName": "points_info",
+  "fields": [
+    {"fieldName": "id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "user_id", "fieldType": "Integer", "notNull": true, "defaultValue": 0},
+    {"fieldName": "points", "fieldType": "String"},
+    {"fieldName": "create_time", "fieldType": "String"},
+    {"fieldName": "points_type", "fieldType": "String"},
+    {"fieldName": "address", "fieldType": "String"},
+    {"fieldName": "year", "fieldType": "String"},
+    {"fieldName": "month", "fieldType": "String"},
+    {"fieldName": "day", "fieldType": "String"},
+    {"fieldName": "time", "fieldType": "String"}
+  ],
+  "indexes": [
+    {"indexName": "field1Index", "indexList": [{"fieldName":"id","sortType":"ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+Entity Class (PointsInfo.ts)
+typescript
+class PointsInfo {
+    id: number;
+    user_id: number = 0;
+    points: string;
+    create_time: string;
+    points_type: string;
+    address: string;
+    year: string;
+    month: string;
+    day: string;
+    time: string;
+
+    constructor() {
+    }
+
+    setId(id: number): void {
+        this.id = id;
+    }
+
+    getId(): number  {
+        return this.id;
+    }
+
+    setUser_id(user_id: number): void {
+        this.user_id = user_id;
+    }
+
+    getUser_id(): number  {
+        return this.user_id;
+    }
+
+    setPoints(points: string): void {
+        this.points = points;
+    }
+
+    getPoints(): string  {
+        return this.points;
+    }
+
+    setCreate_time(create_time: string): void {
+        this.create_time = create_time;
+    }
+
+    getCreate_time(): string  {
+        return this.create_time;
+    }
+
+    setPoints_type(points_type: string): void {
+        this.points_type = points_type;
+    }
+
+    getPoints_type(): string  {
+        return this.points_type;
+    }
+
+    setAddress(address: string): void {
+        this.address = address;
+    }
+
+    getAddress(): string  {
+        return this.address;
+    }
+
+    setYear(year: string): void {
+        this.year = year;
+    }
+
+    getYear(): string  {
+        return this.year;
+    }
+
+    setMonth(month: string): void {
+        this.month = month;
+    }
+
+    getMonth(): string  {
+        return this.month;
+    }
+
+    setDay(day: string): void {
+        this.day = day;
+    }
+
+    getDay(): string  {
+        return this.day;
+    }
+
+    setTime(time: string): void {
+        this.time = time;
+    }
+
+    getTime(): string  {
+        return this.time;
+    }
+}
+
+export { PointsInfo };
+Database Object Class (points_info.ts)
+typescript
+import { cloudDatabase } from '@kit.CloudFoundationKit';
+
+class points_info extends cloudDatabase.DatabaseObject {
+  public id: number;
+  public user_id = 0;
+  public points: string;
+  public create_time: string;
+  public points_type: string;
+  public address: string;
+  public year: string;
+  public month: string;
+  public day: string;
+  public time: string;
+
+  public naturalbase_ClassName(): string {
+    return 'points_info';
+  }
+}
+
+export { points_info };
+Implement Cloud Database Insertion in Order Confirmation
+typescript
+// When confirming the order completion
+let points = new points_info();
+points.id = Math.floor(Math.random() * 1000000);
+points.user_id = this.user!.user_id;
+points.points = String(item.money);
+points.points_type = '0'; // '0' represents income
+points.address = 'Client order reward';
+points.year = this.year;
+points.month = this.month;
+points.day = this.day;
+points.time = this.time;
+points.create_time = this.year + "-" + this.month + "-" + this.day + " " + this.time;
+let points_nums = await databaseZone.upsert(points);
+
+// Update the total points in user information
+let userData = new user_info();
+userData.id = this.userInfo!.id;
+userData.user_id = this.userInfo!.user_id;
+userData.sex = this.userInfo!.sex;
+userData.bind_phone = this.userInfo!.bind_phone;
+userData.create_time = this.userInfo!.create_time;
+userData.nickname = this.userInfo!.nickname;
+userData.head_img = this.userInfo!.head_img;
+
+// Update money
+if (this.userInfo?.money != null) {
+  userData.money = this.userInfo!.money + item.money;
+} else {
+  userData.money = item.money;
+}
+
+// Update points
+if (this.userInfo?.points != null) {
+  userData.points = this.userInfo!.points + item.integral;
+} else {
+  userData.points = item.integral;
+}
+
+let s = await databaseZone.upsert(userData);
+
+
+
+
+
+
+This completes the insertion of user points information, linking recycling orders to points updates and ensuring real-time synchronization of total points in user profiles.
