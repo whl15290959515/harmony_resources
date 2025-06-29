@@ -1,0 +1,113 @@
+
+Technology Stack
+AppGallery Connect
+Development Preparation
+The app is nearly 95% complete. We will further refine details to make it more commercially viable. Commercial apps typically feature a welcome page displaying banners, advertisements, or videos. We will implement such a page and utilize the "is_log_off" field designed in the user table.
+Functionality Analysis
+Welcome Page: Display promotional images, implement auto-redirection after a countdown, and allow manual skipping.
+Account Validation: Retrieve user data from preferences on page load. Query the cloud database to check account status: if valid, redirect to the home page; if invalid, notify the user that the account has been logged off.
+Code Implementation
+First, implement the welcome page:
+
+typescript
+@State countdown: number = 4;
+@State isJumping: boolean = false;
+private timer: number | null = null;
+@State user: User | null = null;
+@State isRemove: boolean = false;
+
+startCountdown() {
+  this.timer = setInterval(() => {
+    if (this.countdown > 1) {
+      this.countdown--;
+    } else {
+      this.toHome();
+    }
+  }, 1000);
+}
+
+Implement countdown cancellation and redirection methods:
+
+typescript
+toHome() {
+  if (this.isJumping) return;
+  this.isJumping = true;
+  clearInterval(this.timer!);
+  router.replaceUrl({ url: 'pages/Index' });
+}
+
+aboutToDisappear() {
+  if (this.timer) clearInterval(this.timer);
+}
+
+Retrieve user information, check account status, and start the countdown on page load:
+
+typescript
+async aboutToAppear() {
+  this.startCountdown();
+
+  const value = await StorageUtils.getAll('user');
+  if (value !== '') {
+    let userinfo = JSON.parse(value) as User;
+    let databaseZone = cloudDatabase.zone('default');
+    let condition = new cloudDatabase.DatabaseQuery(user);
+    condition.equalTo("user_name", userinfo.user_name);
+    let listData = await databaseZone.query(condition);
+    let json = JSON.stringify(listData);
+    let data1: User[] = JSON.parse(json);
+    if (data1.length > 0) {
+      this.user = data1[0];
+    }
+  }
+}
+
+Check account status and decide to prompt the user or redirect to the home page:
+
+typescript
+if (this.user!.is_log_off) {
+  promptAction.showDialog({
+    title: 'Notice',
+    message: 'This account has been logged off',
+    buttons: [
+      { text: 'Understood', color: '#ffffff' },
+      { text: 'Close', color: '#ffffff' }
+    ],
+  })
+  .then(data => {
+    console.info('showDialog success, click button: ' + data.index);
+  })
+  .catch((err: Error) => {
+    console.info('showDialog error: ' + err);
+  });
+  clearInterval(this.timer!);
+} else {
+  this.toHome();
+}
+
+Implement the UI for the welcome page:
+
+typescript
+build() {
+  Stack({ alignContent: Alignment.TopEnd }) {
+    Image($r('app.media.splash'))
+      .width('100%')
+      .height('100%')
+      .objectFit(ImageFit.Cover);
+    Row() {
+      Text(`${this.countdown}s | Skip`)
+        .width(100)
+        .height(40)
+        .textAlign(TextAlign.Center)
+        .borderRadius(20)
+        .border({ width: 1, color: Color.White })
+        .fontColor('#FFFFFF')
+        .backgroundColor('rgba(0,0,0,0.3)');
+    }
+    .padding(15);
+  }
+  .width('100%')
+  .height('100%');
+}
+
+
+This completes the implementation of the welcome page and account validation.
