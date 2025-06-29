@@ -69,7 +69,7 @@ export struct AllPoints {
         .interpolation(ImageInterpolation.High)
         .borderRadius(25)
       Column({ space: 10 }) {
-        Text(item.points_type === '0' ? "获得" : "兑换")
+        Text(item.points_type === '0' ? "get" : "push")
           .fontColor("#333333")
           .fontSize(16)
         Text(item.address)
