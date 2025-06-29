@@ -1,0 +1,114 @@
+
+Technology Stack
+AppGallery Connect
+Development Preparation
+In the previous section, we implemented user data submission and successfully completed user registration. This section focuses on implementing login validation based on the submitted information and saving current user data for subsequent use after login.
+Functionality Analysis
+To implement login:
+
+Retrieve user input.
+Validate login credentials.
+Store user data in local storage after successful login for subsequent use.
+Development Implementation
+First, implement the login page and basic validation:
+
+typescript
+import promptAction from '@ohos.promptAction';
+import { router } from '@kit.ArkUI';
+import { CommonTopBar } from '../widget/CommonTopBar';
+import { cloudDatabase } from '@kit.CloudFoundationKit';
+import { user } from '../CloudDb/user';
+import { User } from '../entity/User';
+import showToast from '../utils/ToastUtils';
+import { StorageUtils } from '../utils/StorageUtils';
+
+@Entry
+@Component
+struct LoginPage {
+  aboutToAppear() {}
+  @State acc: string = '';
+  @State psw: string = '';
+  controller: TextInputController = new TextInputController();
+
+  async login(): Promise<void> {
+    if (this.acc === '' && this.psw === '') {
+      promptAction.showToast({ message: "Please enter account or password" });
+      return;
+    } else {
+      // Login logic
+    }
+  }
+
+  build() {
+    Column({ space: 20 }) {
+      CommonTopBar({ title: "Login", alpha: 0, titleAlignment: TextAlign.Center, backButton: false });
+      Column() {
+        Image($r("app.media.logo"))
+          .width(120).height(120).borderRadius(60);
+
+        TextInput({ text: this.acc, placeholder: 'Please enter account' })
+          .backgroundColor("#f6f6f6")
+          .placeholderColor("#ff999595")
+          .fontColor("#333333")
+          .maxLength(11)
+          .type(InputType.Number)
+          .onChange((value: String) => {
+            this.acc = value.toString();
+          }).margin(20);
+
+        TextInput({ text: this.psw, placeholder: 'Please enter password' })
+          .backgroundColor("#f6f6f6")
+          .placeholderColor("#ff999595")
+          .fontColor("#333333")
+          .type(InputType.Password)
+          .onChange((value: String) => {
+            this.psw = value.toString();
+          }).margin(20);
+
+        Row() {
+          Text('Register')
+            .fontColor("#ff65c8ee")
+            .fontSize(14)
+            .margin(30)
+            .onClick(() => {
+              router.pushUrl({ url: 'pages/user/RegisterPage' });
+            });
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.End);
+
+        Button('Login', { type: ButtonType.Capsule, stateEffect: false })
+          .onClick(() => {
+            this.login();
+          })
+          .fontColor(Color.White)
+          .width('80%')
+          .height(40)
+          .backgroundColor("#ff65c8ee");
+      }
+      .width('100%');
+    }
+    .height('100%')
+    .backgroundColor('#FFFFFF')
+    .justifyContent(FlexAlign.Start);
+  }
+}
+
+Implement login validation, query user data, and store in local preferences:
+
+typescript
+let databaseZone = cloudDatabase.zone('default');
+let condition = new cloudDatabase.DatabaseQuery(user);
+condition.equalTo("user_name", this.acc).and().equalTo("psw", this.psw);
+let listData = await databaseZone.query(condition);
+
+let json = JSON.stringify(listData);
+let data1: User[] = JSON.parse(json);
+if (data1.length > 0) {
+  showToast("Login successful");
+  StorageUtils.set("user", JSON.stringify(data1[0]));
+}
+
+
+
+This implements the user login functionality.
