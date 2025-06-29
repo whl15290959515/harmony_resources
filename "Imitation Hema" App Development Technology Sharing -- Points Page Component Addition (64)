@@ -1,0 +1,156 @@
+
+
+Technology Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we created the points page and added a title bar and points display component. In this section, we will further enrich the points page by adding a navigation bar, points detail display areas, and other components.
+
+Functionality Analysis
+Since the page relationships are not strongly coupled, we will implement the navigation bar using component import. Additionally, we will add corresponding tabs components below to facilitate the display and viewing of points details.
+
+Code Implementation
+First, implement the navigation bar content:
+
+css
+import router from '@ohos.router'
+
+@Component
+export struct CenterButton {
+  iconList:ESObject[]=[{
+    icon:$r('app.media.jifendengji'),
+    name:"积分等级"
+  },{
+    icon:null,
+    name:""
+  },{
+    icon:$r('app.media.jifenduihuan'),
+    name:"积分兑换"
+  }]
+  @Builder
+  IconBar(){
+    Row(){
+      ForEach(this.iconList,(item:ESObject,index)=>{
+        this.IconButton(item,index)
+      })
+    }
+    .IconBarBg()
+    .height(80)
+    .borderRadius(10)
+    .width('100%')
+    .padding({left:50,right:50})
+    .justifyContent(FlexAlign.SpaceBetween)
+  }
+  @Builder
+  IconButton(item:ESObject,index:number){
+    Column(){
+      Image(item.icon)
+        .height(20)
+        .width(20)
+        .objectFit(ImageFit.Contain)
+        .interpolation(ImageInterpolation.High)
+      Text(item.name)
+        .margin({top:6})
+        .fontColor("#000000")
+        .fontSize(14)
+    }
+    .onClick(()=>{
+      switch (item.name) {
+        case "积分等级":
+          router.pushUrl({url:''})
+          break;
+        case "":
+          break;
+        case "积分兑换":
+          router.pushUrl({url:''})
+          break;
+        default:
+          break;
+      }
+    })
+  }
+  build() {
+    Row() {
+      this.IconBar()
+    }
+    .padding({left:12,right:12})
+    .margin({top:14})
+    .width(
+      '100%'
+    )
+  }
+}
+@Extend(Row) function IconBarBg(){
+  .linearGradient({
+    angle: 180,
+    colors: [[0xff0000, 0], [0xff6666, 0.5], [0xffffff, 1]]
+  })
+}
+
+In the navigation bar, we added click events to the buttons to facilitate navigation to corresponding pages in the future.
+
+Next, implement the tabs. We create the tab header using @Builder and add corresponding switching events:
+
+css
+@State arr:string[]=["全部","获得",'兑换']
+@State fontColor: string = '#182431'
+@State selectedFontColor: string = '#007DFF'
+@State currentIndex: number = 0
+private controller: TabsController = new TabsController()
+
+css
+@Builder TabBuilder(index: number, name: string) {
+  Column() {
+    Text(name)
+      .fontColor(this.currentIndex === index ? this.fontColor : this.fontColor)
+      .fontSize(this.currentIndex === index ? 16:15)
+      .fontWeight(this.currentIndex === index ? FontWeight.Bold : FontWeight.Normal)
+      .lineHeight(22)
+    Divider()
+      .strokeWidth(3)
+      .width(30)
+      .color(0xff0000)
+      .opacity(this.currentIndex === index ? 1 : 0)
+      .margin({top:2})
+  }
+  .height(50)
+  .width('100%')
+  .justifyContent(FlexAlign.Center)
+}
+
+Add the tabs after creating the header:
+
+css
+Tabs({ barPosition: BarPosition.Start, controller: this.controller }) {
+  ForEach(this.arr,(item:string,index)=>{
+    TabContent() {
+      Column(){
+        if (item=='全部') {
+        }
+        if (item=='获得') {
+        }
+        if (item=='兑换') {
+        }
+      }
+    }
+    .tabBar(this.TabBuilder(index, item))
+    .borderRadius(10)
+    .backgroundColor(Color.White)
+  })
+}
+.vertical(false)
+.barMode(BarMode.Fixed)
+.barWidth('100%')
+.barHeight(50)
+.backgroundColor(Color.White)
+.animationDuration(300)
+.onChange((index: number) => {
+  this.currentIndex = index
+})
+.width('100%')
+.height('100%')
+.layoutWeight(1)
+.margin({ top: 10 })
+
+
+With this, all components for the points page have been added. We will implement the corresponding logic in subsequent sections.
