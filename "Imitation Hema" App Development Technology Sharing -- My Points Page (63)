@@ -1,0 +1,93 @@
+
+
+Technology Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we optimized the business logic of the personal center page, successfully displaying corresponding component content based on the user's login/logout status. In this section, we'll implement another important module in the app - the points system.
+
+Functionality Analysis
+Since our recycling orders are tied to recycling gold points, when a recycling order is completed, the corresponding amount and points are added to the user's personal information table. Here, we can retrieve the total points. Other points-related information can also be managed through recycling order pages.
+
+Code Implementation
+First, create the points page. To maintain visual consistency, keep the layout similar to the recycling gold page for easier user operation and viewing:
+
+css
+build() {
+  Column() {
+    CommonTopBar({ title: "我的积分", alpha: 0, titleAlignment: TextAlign.Center ,backButton:true})
+    Row(){
+      Text()
+        .fontSize(30)
+        .fontColor("#333333")
+        .fontWeight(FontWeight.Bold)
+    }
+  }
+  .height('100%')
+  .width('100%')
+}
+
+Add a toolbar and a text component to display the points queried from the database.
+
+Define variables to hold the queried data:
+
+css
+@State isClose:boolean=false
+@State user: User|null=null;
+@State userInfo:UserInfo|null=null;
+@State points:number=0
+
+Query user information in the lifecycle and assign values to the variables:
+
+css
+async aboutToAppear(): Promise<void> {
+  const value = await StorageUtils.getAll('user');
+  if (value != "") {
+    this.user = JSON.parse(value)
+    if (this.user != null) {
+      let databaseZone = cloudDatabase.zone('default');
+      let condition = new cloudDatabase.DatabaseQuery(user_info);
+      condition.equalTo("user_id", this.user?.user_id)
+      let listData = await databaseZone.query(condition);
+      let json = JSON.stringify(listData)
+      let data: UserInfo[] = JSON.parse(json)
+      this.userInfo = data[0]
+      this.points=data[0].points
+      hilog.error(0x0000, 'testTag', `Failed to query data, code: ${data}`);
+    }
+  }
+}
+
+Display the points value on the page with show/hide functionality:
+
+css
+Row(){
+  Text(this.isClose?"$****":"$"+this.points.toString())
+    .fontSize(30)
+    .fontColor("#333333")
+    .fontWeight(FontWeight.Bold)
+  Image(this.isClose?$r('app.media.ic_psd_hide'):$r('app.media.ic_psd_show'))
+    .width(28)
+    .height(28)
+    .objectFit(ImageFit.Contain)
+    .interpolation(ImageInterpolation.High)
+    .margin({left:12})
+    .onClick(()=>{
+      if (this.isClose==false) {
+        this.isClose=true
+      }else {
+        this.isClose=false
+      }
+    })
+}
+
+Add navigation to the points page from the personal center:
+
+css
+.onClick(()=>{
+  router.pushUrl({url:'pages/recycle/points/PointsPage'})
+})
+
+
+Final Notes
+HarmonyOS has been updated to 6.0 beta with API level 20 beta. Many older methods are deprecated, and we'll gradually update our implementation in the future.
