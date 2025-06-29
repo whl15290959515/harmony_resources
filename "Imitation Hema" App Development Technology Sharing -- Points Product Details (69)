@@ -1,0 +1,171 @@
+
+Technology Stack
+AppGallery Connect
+Development Preparation
+In the previous section, we implemented the display of the points redemption product list, allowing users to view redeemable products from the points page after recycling. We are one step closer to a complete app. Now, we need to implement the product details page when users click on a list item.
+Functionality Analysis
+Although most product data is already obtained during list display, to ensure real-time accuracy and consistency with the cloud, we query product data by ID when a user clicks an item. After retrieving the corresponding product data, we display it on the details page.
+Code Implementation
+First, pass the product ID to the details page:
+
+typescript
+.onClick(() => {
+  let product: ProductDetailModel = {
+    id: item.id
+  };
+  router.pushUrl({
+    url: 'pages/recycle/points/PointsDetailsPage',
+    params: product
+  }, (err) => {
+    if (err) {
+      console.error(`Invoke pushUrl failed, code is ${err.code}, message is ${err.message}`);
+      return;
+    }
+  });
+})
+
+Receive the ID and query data:
+
+typescript
+@State pointsProduct: PointsProduct | null = null
+async aboutToAppear(): Promise<void> {
+  let databaseZone = cloudDatabase.zone('default');
+  let product = await router.getParams() as ProductDetailModel;
+  let condition1 = new cloudDatabase.DatabaseQuery(points_product);
+  condition1.equalTo("id", product.id)
+  let productDetail = await databaseZone.query(condition1);
+  let json = JSON.stringify(productDetail)
+  let list: PointsProduct[] = JSON.parse(json)
+  this.pointsProduct = list[0]
+}
+
+Display other data in corresponding components:
+
+typescript
+build() {
+  Stack({ alignContent: Alignment.Bottom }) {
+    Scroll(this.scroller) {
+      Column() {
+        CommonTopBar({ title: "Product Details", alpha: 0, titleAlignment: TextAlign.Center, backButton: true })
+        Image(this.pointsProduct?.url)
+          .width('100%')
+          .height(300)
+          .objectFit(ImageFit.Cover)
+        Column({ space: 10 }) {
+          Row() {
+            Text() {
+              Span("$")
+                .fontSize(14)
+                .fontColor(Color.Red)
+              Span(this.pointsProduct?.points + "")
+                .fontSize(22)
+                .fontColor(Color.Red)
+            }
+          }
+          .padding(10)
+
+          Text(this.pointsProduct?.name)
+            .fontSize(20)
+            .fontColor(Color.Black)
+            .margin({ left: 10 })
+            .fontWeight(FontWeight.Bold)
+          Text(this.pointsProduct?.text_message)
+            .fontSize(14)
+            .fontColor(Color.Gray)
+            .margin({ left: 10 })
+          Row() {
+            Text()
+            Text("Redeemed " + this.pointsProduct?.sales_volume)
+              .fontSize(14)
+              .fontColor(Color.Black)
+          }
+          .padding(10)
+          .width('100%')
+          .justifyContent(FlexAlign.SpaceBetween)
+
+          Divider().width('100%')
+            .height(5).backgroundColor("#f7f7f7")
+          Row() {
+            Text("Delivery")
+              .fontColor(Color.Gray)
+              .fontSize(14)
+            Text(this.pointsProduct?.delivery_time + "")
+              .fontSize(14)
+              .margin({ left: 20 })
+              .fontColor(Color.Black)
+          }
+          .padding(10)
+          .width('100%')
+          .justifyContent(FlexAlign.Start)
+          Divider().width('100%')
+            .height(5).backgroundColor("#f7f7f7")
+          Row() {
+            Text("Parameters")
+              .fontColor(Color.Gray)
+              .fontSize(14)
+            Text("Storage:")
+              .margin({ left: 20 })
+              .fontSize(14)
+              .fontColor(Color.Black)
+            Text(this.pointsProduct?.parameter)
+              .fontSize(14)
+              .fontColor(Color.Black)
+          }
+          .padding(10)
+          .width('100%')
+          .justifyContent(FlexAlign.Start)
+          Divider().width('100%')
+            .height(5).backgroundColor("#f7f7f7")
+
+          Row() {
+            Text("Specifications")
+              .fontColor(Color.Gray)
+              .fontSize(14)
+            Column({ space: 5 }) {
+              Text(this.pointsProduct?.spec_str)
+                .fontSize(14)
+                .fontColor(Color.Black)
+            }
+            .alignItems(HorizontalAlign.Start)
+            .margin({ left: 20 })
+          }
+          .padding(10)
+          .width('100%')
+          .justifyContent(FlexAlign.Start)
+          Divider().width('100%')
+            .height(5).backgroundColor("#f7f7f7")
+        }
+        .alignItems(HorizontalAlign.Start)
+      }
+      .alignItems(HorizontalAlign.Start)
+      .backgroundColor(Color.White)
+    }
+    .padding({ bottom: 80 })
+    .height('100%')
+    .width('100%')
+    Row() {
+      Text()
+      Blank()
+      Text("Redeem Now")
+        .padding(10)
+        .width('45%')
+        .textAlign(TextAlign.Center)
+        .backgroundColor("#FCDB29")
+        .fontColor(Color.White)
+        .borderRadius(15)
+        .onClick(() => {
+          // Redemption logic
+        })
+    }
+    .padding(15)
+    .justifyContent(FlexAlign.SpaceBetween)
+    .width('100%')
+    .backgroundColor(Color.White)
+  }
+  .backgroundColor(Color.White)
+}
+
+
+
+
+This completes the implementation of the points product details page.
