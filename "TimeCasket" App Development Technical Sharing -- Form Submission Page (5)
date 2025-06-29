@@ -1,0 +1,225 @@
+
+Technology Stack
+AppGallery Connect
+Development Preparation
+In the previous section, we completed the creation of form information and the content for navigating from the home page to the form submission page. This section focuses on implementing the data filling page before form creation.
+Functionality Analysis
+Before form submission, the static content to be implemented includes: input fields, switches, time pickers, form types, pin-to-top option, end time setting, inclusion of the current date, event color selection, icon selection, daily weather selection, mood selection, etc. Each requires a static selection or display entry.
+Development Implementation
+First, implement the basic static page:
+
+typescript
+import { CommonTopBar } from '../widget/CommonTopBar';
+
+@Entry
+@Component
+struct TablePushPage {
+  @State title: string = '';
+  @State time_visibility: boolean = false;
+  @State top_visibility: boolean = false;
+
+  build() {
+    Column({ space: 15 }) {
+      CommonTopBar({ title: "Add New Date", alpha: 0, titleAlignment: TextAlign.Center, backButton: true });
+      Row({ space: 10 }) {
+        Image($r('app.media.mubiaoshijian'))
+          .height(30)
+          .width(30);
+        TextInput({ text: this.title, placeholder: 'Please enter event name' })
+          .placeholderColor("#ff999595")
+          .fontColor("#333333")
+          .onChange((value: string) => {
+            this.title = value;
+          });
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.Start);
+
+      Row({ space: 10 }) {
+        Image($r('app.media.mubiaori'))
+          .height(30)
+          .width(30);
+        Text("Target Date")
+          .fontColor(Color.Gray)
+          .fontSize(14);
+        Blank();
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.SpaceBetween);
+
+      Row({ space: 10 }) {
+        Image($r('app.media.daoshuben'))
+          .height(30)
+          .width(30);
+        Text("Countdown Category")
+          .fontColor(Color.Gray)
+          .fontSize(14);
+        Blank();
+        Text("Life")
+          .fontColor(Color.Gray)
+          .fontSize(14);
+        Image($r('app.media.xiajiantou'))
+          .height(15)
+          .width(15);
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.SpaceBetween);
+
+      Row({ space: 10 }) {
+        Image($r('app.media.zhiding'))
+          .height(30)
+          .width(30);
+        Text("Pin to Top")
+          .fontColor(Color.Gray)
+          .fontSize(14);
+        Blank();
+        Image(this.top_visibility ? $r('app.media.kai') : $r('app.media.guan'))
+          .width(60)
+          .height(30)
+          .onClick(async () => {
+            this.top_visibility = !this.top_visibility;
+          });
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.SpaceBetween);
+
+      Row({ space: 10 }) {
+        Image($r('app.media.jingqueshijian'))
+          .height(30)
+          .width(30);
+        Text("Show Precise Time")
+          .fontColor(Color.Gray)
+          .fontSize(14);
+        Blank();
+        Image(this.time_visibility ? $r('app.media.kai') : $r('app.media.guan'))
+          .width(60)
+          .height(30)
+          .onClick(async () => {
+            this.time_visibility = !this.time_visibility;
+          });
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.SpaceBetween);
+
+      Row({ space: 10 }) {
+        Image($r('app.media.yanse'))
+          .height(30)
+          .width(30);
+        Text("Event Color")
+          .fontColor(Color.Gray)
+          .fontSize(14);
+        Blank();
+        Image($r('app.media.xiajiantou'))
+          .height(15)
+          .width(15);
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.SpaceBetween);
+
+      Row({ space: 10 }) {
+        Image($r('app.media.tubiao'))
+          .height(30)
+          .width(30);
+        Text("Event Icon")
+          .fontColor(Color.Gray)
+          .fontSize(14);
+        Blank();
+        Image($r('app.media.xiajiantou'))
+          .height(15)
+          .width(15);
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.SpaceBetween);
+
+      Row({ space: 10 }) {
+        Image($r('app.media.tianqi'))
+          .height(30)
+          .width(30);
+        Text("Weather")
+          .fontColor(Color.Gray)
+          .fontSize(14);
+        Blank();
+        Image($r('app.media.xiajiantou'))
+          .height(15)
+          .width(15);
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.SpaceBetween);
+
+      Row({ space: 10 }) {
+        Image($r('app.media.xinqing'))
+          .height(30)
+          .width(30);
+        Text("Mood")
+          .fontColor(Color.Gray)
+          .fontSize(14);
+        Blank();
+        Image($r('app.media.xiajiantou'))
+          .height(15)
+          .width(15);
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.SpaceBetween);
+    }
+    .padding(10)
+    .backgroundColor(Color.White)
+    .height('100%')
+    .width('100%');
+  }
+}
+
+Next, implement a date picker dialog:
+
+typescript
+Row({ space: 10 }) {
+  Image($r('app.media.mubiaori'))
+    .height(30)
+    .width(30);
+  Text("Target Date")
+    .fontColor(Color.Gray)
+    .fontSize(14);
+  Blank();
+}
+.width('100%')
+.justifyContent(FlexAlign.SpaceBetween)
+.onClick(() => {
+  this.getUIContext().showDatePickerDialog({
+    start: new Date("2000-1-1"),
+    end: new Date("2100-12-31"),
+    selected: this.selectedDate,
+    disappearTextStyle: { color: '#297bec', font: { size: '20fp', weight: FontWeight.Bold } },
+    textStyle: { color: Color.Black, font: { size: '18fp', weight: FontWeight.Normal } },
+    selectedTextStyle: { color: Color.Blue, font: { size: '26fp', weight: FontWeight.Regular } },
+    acceptButtonStyle: {
+      type: ButtonType.Normal,
+      style: ButtonStyleMode.NORMAL,
+      role: ButtonRole.NORMAL,
+      fontColor: 'rgb(81, 81, 216)',
+      fontSize: '26fp',
+      fontWeight: FontWeight.Bolder,
+      fontStyle: FontStyle.Normal,
+      fontFamily: 'sans-serif',
+      backgroundColor: '#A6ACAF',
+      borderRadius: 20
+    },
+    cancelButtonStyle: {
+      type: ButtonType.Normal,
+      style: ButtonStyleMode.NORMAL,
+      role: ButtonRole.NORMAL,
+      fontColor: Color.Blue,
+      fontSize: '16fp',
+      fontWeight: FontWeight.Normal,
+      fontStyle: FontStyle.Italic,
+      fontFamily: 'sans-serif',
+      backgroundColor: '#50182431',
+      borderRadius: 10
+    },
+    onDateAccept: (value: Date) => {
+      this.selectedDate = value;
+      console.info("Time selected: " + value.toString());
+    }
+  });
+})
+
+
+This implements the form submission page and date picker functionality.
