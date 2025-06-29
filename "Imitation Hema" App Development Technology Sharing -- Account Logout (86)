@@ -1,0 +1,170 @@
+
+Technology Stack
+Appgallery Connect
+Development Preparation
+In the previous section, we implemented an account recovery function for users whose accounts were logged out on the welcome page. However, the account logout feature has been directly modified in the cloud database without a dedicated entry. This section implements an account logout entry and related functionality.
+Functionality Analysis
+To implement account logout:
+
+Add a logout entry in the personal center page's function list.
+Navigate to the logout page from this entry, retrieve the current login account information.
+After the user confirms the account and enters the password, display a pop-up for secondary confirmation.
+Implement account logout after the user confirms via the pop-up.
+Code Implementation
+First, add the logout entry in the personal center page:
+
+c
+new SectionLine("Logout",
+        "Logout your account",
+        $r('app.media.zhuxiao'),
+        false),
+
+Add the corresponding navigation event:
+
+c
+if (item.title == 'Logout') {
+        if (this.user != null) {
+          router.pushUrl({url: 'pages/view/LogOffPage'})
+        } else {
+          showToast("Please log in first")
+        }
+      }
+
+Create the logout page, retrieve the current user information on page load, and display logout details:
+
+c
+@State message: string = "Prompt information";
+@State user: User | null = null;
+@State psw: string = '';
+
+async aboutToAppear(): Promise<void> {
+  const userInfo = await StorageUtils.getAll('user');
+  if (userInfo != null) {
+    this.user = JSON.parse(userInfo);
+  }
+}
+
+Implement the UI after retrieving user information:
+
+c
+CommonTopBar({ title: "Account Logout", alpha: 0, titleAlignment: TextAlign.Center, backButton: true })
+Text("Dear " + this.user?.user_name + ", " + this.message)
+  .border({ width: 1, color: Color.Black })
+  .borderRadius(15)
+  .margin({ left: 15, right: 15 })
+  .fontColor(Color.Black)
+  .padding(10)
+  .fontSize(16)
+  .fontWeight(FontWeight.Bold)
+
+TextInput({ text: this.psw,
+  placeholder: 'Please enter your password'
+})
+  .backgroundColor("#f6f6f6")
+  .placeholderColor("#ff999595")
+  .fontColor("#333333")
+  .type(InputType.Password)
+  .onChange((value: String) => {
+    this.psw = value.toString()
+  }).margin(20)
+
+Row() {
+  Text('Logout')
+    .fontColor(Color.White)
+    .fontSize(18)
+    .backgroundColor("#ffe74141")
+    .padding(10)
+    .borderRadius(10)
+
+Implement the logic for the logout button click:
+
+c
+let databaseZone = cloudDatabase.zone('default');
+let condition = new cloudDatabase.DatabaseQuery(user);
+condition.equalTo("user_name", this.user?.user_name).and().equalTo("psw", this.psw);
+let listData = await databaseZone.query(condition);
+let json = JSON.stringify(listData);
+let data1: User[] = JSON.parse(json);
+if (data1.length > 0) {
+  let userInfo = new user();
+  userInfo.id = data1[0].id;
+  userInfo.user_id = data1[0].user_id;
+  userInfo.user_name = data1[0].user_name;
+  userInfo.psw = data1[0].psw;
+  userInfo.is_vip = false;
+  userInfo.user_code = data1[0].user_code;
+  userInfo.is_log_off = true;
+  let num = await databaseZone.upsert(userInfo);
+  if (num > 0) {
+    showToast("Your account has been logged out");
+  }
+}
+
+Add a secondary confirmation pop-up for logout:
+
+c
+promptAction.showDialog({
+  title: 'Notice',
+  message: 'You are logging out of your account',
+  buttons: [
+    {
+      text: 'Cancel',
+      color: '#ffffff'
+    },
+    {
+      text: 'Confirm',
+      color: '#ffffff'
+    }
+  ],
+})
+.then(async data => {
+  if (data.index == 0) {
+  }
+  if (data.index == 1) {
+    let databaseZone = cloudDatabase.zone('default');
+    let condition = new cloudDatabase.DatabaseQuery(user);
+    condition.equalTo("user_name", this.user?.user_name).and().equalTo("psw", this.psw);
+    let listData = await databaseZone.query(condition);
+    let json = JSON.stringify(listData);
+    let data1: User[] = JSON.parse(json);
+    if (data1.length > 0) {
+      let userInfo = new user();
+      userInfo.id = data1[0].id;
+      userInfo.user_id = data1[0].user_id;
+      userInfo.user_name = data1[0].user_name;
+      userInfo.psw = data1[0].psw;
+      userInfo.is_vip = false;
+      userInfo.user_code = data1[0].user_code;
+      userInfo.is_log_off = true;
+      let num = await databaseZone.upsert(userInfo);
+      if (num > 0) {
+        showToast("Your account has been logged out");
+      }
+    }
+  }
+  console.info('showDialog success, click button: ' + data.index);
+})
+.catch((err: Error) => {
+  console.info('showDialog error: ' + err);
+});
+
+After successful logout, clear local account information and navigate back:
+
+c
+let num = await databaseZone.upsert(userInfo);
+if (num > 0) {
+  showToast("Your account has been logged out");
+  StorageUtils.remove('user');
+  router.back();
+  let eventData: emitter.EventData = {
+    data: {}
+  };
+  let innerEvent: emitter.InnerEvent = {
+    eventId: 2001,
+    priority: emitter.EventPriority.HIGH
+  };
+  emitter.emit(innerEvent, eventData);
+}
+
+
+This completes the implementation of the account logout functionality.
