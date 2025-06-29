@@ -1,0 +1,114 @@
+
+Technology Stack
+AppGallery Connect
+Development Preparation
+In the previous section, we implemented the welcome page logic and account status prompting. However, if a user previously logged out but now wishes to reuse the app, we need to implement an account recovery function in the logout prompt popup. This section focuses on enabling users to resume using the app by restoring their account.
+Functionality Analysis
+To implement account recovery:
+
+Add a navigation link in the logout popup to a recovery page.
+On the recovery page, modify the user's account status by validating their credentials.
+Include recovery instructions to avoid misunderstandings.
+Code Implementation
+First, implement the account recovery UI page and define necessary variables:
+
+typescript
+@State message: string = 'Prompt message';
+@State acc: string = '';
+@State psw: string = '';
+
+CommonTopBar({ title: "Account Recovery", alpha: 0, titleAlignment: TextAlign.Center, backButton: true })
+Text(this.message)
+  .border({ width: 1, color: Color.Black })
+  .borderRadius(15)
+  .margin({ left: 15, right: 15 })
+  .fontColor(Color.Black)
+  .padding(10)
+  .fontSize(16)
+  .fontWeight(FontWeight.Bold);
+Column() {
+  TextInput({ text: this.acc, placeholder: 'Please enter the account before logout' })
+    .backgroundColor("#f6f6f6")
+    .placeholderColor("#ff999595")
+    .fontColor("#333333")
+    .maxLength(11)
+    .type(InputType.Number)
+    .onChange((value: String) => {
+      this.acc = value.toString();
+    }).margin(20);
+
+  TextInput({ text: this.psw, placeholder: 'Please enter the password before logout' })
+    .backgroundColor("#f6f6f6")
+    .placeholderColor("#ff999595")
+    .fontColor("#333333")
+    .type(InputType.Password)
+    .onChange((value: String) => {
+      this.psw = value.toString();
+    }).margin(20);
+
+Implement the business logic for account recovery. When the user clicks "Account Recovery," validate the entered credentials first:
+
+typescript
+let databaseZone = cloudDatabase.zone('default');
+let condition = new cloudDatabase.DatabaseQuery(user);
+condition.equalTo("user_name", this.acc).and().equalTo("psw", this.psw);
+let listData = await databaseZone.query(condition);
+let json = JSON.stringify(listData);
+let data1: User[] = JSON.parse(json);
+
+If the credentials are valid, update the account status and navigate to the home page:
+
+typescript
+let userInfo = new user();
+userInfo.id = data1[0].id;
+userInfo.user_id = data1[0].user_id;
+userInfo.user_name = data1[0].user_name;
+userInfo.psw = data1[0].psw;
+userInfo.is_vip = false;
+userInfo.user_code = data1[0].user_code;
+userInfo.is_log_off = false;
+let num = await databaseZone.upsert(userInfo);
+if (num > 0) {
+  showToast("Account recovered successfully");
+  router.replaceUrl({ url: 'pages/Index' });
+}
+
+Complete method implementation:
+
+typescript
+Row() {
+  Text('Account Recovery')
+    .fontColor(Color.White)
+    .fontSize(18)
+    .backgroundColor("#ffe74141")
+    .padding(10)
+    .borderRadius(10)
+    .onClick(async () => {
+      let databaseZone = cloudDatabase.zone('default');
+      let condition = new cloudDatabase.DatabaseQuery(user);
+      condition.equalTo("user_name", this.acc).and().equalTo("psw", this.psw);
+      let listData = await databaseZone.query(condition);
+      let json = JSON.stringify(listData);
+      let data1: User[] = JSON.parse(json);
+      if (data1.length > 0) {
+        let userInfo = new user();
+        userInfo.id = data1[0].id;
+        userInfo.user_id = data1[0].user_id;
+        userInfo.user_name = data1[0].user_name;
+        userInfo.psw = data1[0].psw;
+        userInfo.is_vip = false;
+        userInfo.user_code = data1[0].user_code;
+        userInfo.is_log_off = false;
+        let num = await databaseZone.upsert(userInfo);
+        if (num > 0) {
+          showToast("Account recovered successfully");
+          router.replaceUrl({ url: 'pages/Index' });
+        }
+      }
+    });
+}
+.width('100%')
+.justifyContent(FlexAlign.Center);
+
+
+This implements the account recovery functionality.
