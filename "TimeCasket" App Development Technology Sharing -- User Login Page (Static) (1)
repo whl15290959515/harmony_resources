@@ -1,0 +1,259 @@
+
+Technology Stack
+AppGallery Connect
+Development Preparation
+Hello everyone! Today, I'm introducing a brand-new HarmonyOS application called "TimeCasket," which means a casket that accompanies you through time. Let's first outline the app's functionality:
+
+Core Features: The app primarily serves as a countdown reminder tool, allowing users to set target dates and display positive/negative countdowns.
+Unique Value: Beyond basic countdowns, it emphasizes "companionship" by enabling relationship binding. Users can bind existing relationships and view shared content among different roles, supporting both individual and collaborative usage scenarios.
+Additional Features: A messaging function is included to add surprises to records.
+Functionality Analysis
+To achieve cross-device data interaction and real-time synchronization, we choose cloud database technology for:
+
+Cloud storage capabilities.
+Seamless data synchronization across devices.
+Development Implementation
+Table Creation
+json
+{
+  "CloudDBZoneName": "casket",
+  "objectTypeName": "user",
+  "fields": [
+    {"fieldName": "id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "bind_user_id", "fieldType": "Integer"},
+    {"fieldName": "bind_type", "fieldType": "Integer"},
+    {"fieldName": "user_id", "fieldType": "Integer"},
+    {"fieldName": "user_name", "fieldType": "String"},
+    {"fieldName": "psw", "fieldType": "String"},
+    {"fieldName": "nike_name", "fieldType": "String"},
+    {"fieldName": "url", "fieldType": "String"},
+    {"fieldName": "sex", "fieldType": "String"},
+    {"fieldName": "birthday", "fieldType": "String"},
+    {"fieldName": "phone", "fieldType": "String"}
+  ],
+  "indexes": [
+    {"indexName": "field1Index", "indexList": [{"fieldName":"id","sortType":"ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+Entity Class
+typescript
+class User {
+  id: number;
+  bind_user_id: number;
+  bind_type: number;
+  user_id: number;
+  user_name: string;
+  psw: string;
+  nike_name: string;
+  url: string;
+  sex: string;
+  birthday: string;
+  phone: string;
+
+  constructor() {}
+
+  setId(id: number): void {
+    this.id = id;
+  }
+
+  getId(): number {
+    return this.id;
+  }
+
+  setBind_user_id(bind_user_id: number): void {
+    this.bind_user_id = bind_user_id;
+  }
+
+  getBind_user_id(): number {
+    return this.bind_user_id;
+  }
+
+  setBind_type(bind_type: number): void {
+    this.bind_type = bind_type;
+  }
+
+  getBind_type(): number {
+    return this.bind_type;
+  }
+
+  setUser_id(user_id: number): void {
+    this.user_id = user_id;
+  }
+
+  getUser_id(): number {
+    return this.user_id;
+  }
+
+  setUser_name(user_name: string): void {
+    this.user_name = user_name;
+  }
+
+  getUser_name(): string {
+    return this.user_name;
+  }
+
+  setPsw(psw: string): void {
+    this.psw = psw;
+  }
+
+  getPsw(): string {
+    return this.psw;
+  }
+
+  setNike_name(nike_name: string): void {
+    this.nike_name = nike_name;
+  }
+
+  getNike_name(): string {
+    return this.nike_name;
+  }
+
+  setUrl(url: string): void {
+    this.url = url;
+  }
+
+  getUrl(): string {
+    return this.url;
+  }
+
+  setSex(sex: string): void {
+    this.sex = sex;
+  }
+
+  getSex(): string {
+    return this.sex;
+  }
+
+  setBirthday(birthday: string): void {
+    this.birthday = birthday;
+  }
+
+  getBirthday(): string {
+    return this.birthday;
+  }
+
+  setPhone(phone: string): void {
+    this.phone = phone;
+  }
+
+  getPhone(): string {
+    return this.phone;
+  }
+}
+
+export { User };
+DB Class
+typescript
+import { cloudDatabase } from '@kit.CloudFoundationKit';
+
+class user extends cloudDatabase.DatabaseObject {
+  public id: number;
+  public bind_user_id: number;
+  public bind_type: number;
+  public user_id: number;
+  public user_name: string;
+  public psw: string;
+  public nike_name: string;
+  public url: string;
+  public sex: string;
+  public birthday: string;
+  public phone: string;
+
+  public naturalbase_ClassName(): string {
+    return 'user';
+  }
+}
+
+export { user };
+Login Page Implementation
+typescript
+import promptAction from '@ohos.promptAction';
+import { router } from '@kit.ArkUI';
+import { CommonTopBar } from '../widget/CommonTopBar';
+
+@Entry
+@Component
+struct LoginPage {
+  aboutToAppear() {}
+  @State acc: string = '';
+  @State psw: string = '';
+  controller: TextInputController = new TextInputController();
+
+  async login(): Promise<void> {
+    if (this.acc === '' && this.psw === '') {
+      promptAction.showToast({ message: "Please enter account or password" });
+      return;
+    } else {
+      // Login logic
+    }
+  }
+
+  build() {
+    Column({ space: 20 }) {
+      CommonTopBar({ title: "Login", alpha: 0, titleAlignment: TextAlign.Center, backButton: false });
+      Column() {
+        Image($r("app.media.logo"))
+          .width(120).height(120).borderRadius(60);
+
+        TextInput({ text: this.acc, placeholder: 'Please enter account' })
+          .backgroundColor("#f6f6f6")
+          .placeholderColor("#ff999595")
+          .fontColor("#333333")
+          .maxLength(11)
+          .type(InputType.Number)
+          .onChange((value: String) => {
+            this.acc = value.toString();
+          }).margin(20);
+
+        TextInput({ text: this.psw, placeholder: 'Please enter password' })
+          .backgroundColor("#f6f6f6")
+          .placeholderColor("#ff999595")
+          .fontColor("#333333")
+          .type(InputType.Password)
+          .onChange((value: String) => {
+            this.psw = value.toString();
+          }).margin(20);
+
+        Row() {
+          Text('Register')
+            .fontColor("#ff65c8ee")
+            .fontSize(14)
+            .margin(30)
+            .onClick(() => {
+              router.pushUrl({ url: 'pages/user/RegisterPage' });
+            });
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.End);
+
+        Button('Login', { type: ButtonType.Capsule, stateEffect: false })
+          .onClick(() => {
+            this.login();
+          })
+          .fontColor(Color.White)
+          .width('80%')
+          .height(40)
+          .backgroundColor("#ff65c8ee");
+      }
+      .width('100%');
+    }
+    .height('100%')
+    .backgroundColor('#FFFFFF')
+    .justifyContent(FlexAlign.Start);
+  }
+}
+
+
+
+
+
+
+
+
+This completes the static implementation of the user login page.
