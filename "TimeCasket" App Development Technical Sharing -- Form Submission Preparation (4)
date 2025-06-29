@@ -1,0 +1,255 @@
+
+Technology Stack
+AppGallery Connect
+Development Preparation
+In the previous section, we implemented the user login functionality. Now, moving to the home page, we start preparing to publish date plans. First, we need to create the information table and implement a title bar with a floating button on the home page.
+Functionality Analysis
+The information table needs to display multiple contents: event name, target date selection, Gregorian/lunar calendar, positive/negative countdown, countdown category selection, pin-to-top effect, precise time display, event color, event icon, event mood, event weather, user binding, related user binding, etc.
+Development Implementation
+First, implement the corresponding table creation:
+
+json
+{
+  "objectTypeName": "push_table_day",
+  "fields": [
+    {"fieldName": "id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "user_id", "fieldType": "Integer", "notNull": true, "defaultValue": 0},
+    {"fieldName": "title", "fieldType": "String"},
+    {"fieldName": "day", "fieldType": "String"},
+    {"fieldName": "time_type", "fieldType": "Integer"},
+    {"fieldName": "menu_id", "fieldType": "Integer"},
+    {"fieldName": "is_show_top", "fieldType": "Boolean"},
+    {"fieldName": "is_show_time", "fieldType": "Boolean"},
+    {"fieldName": "tab_color_id", "fieldType": "Integer"},
+    {"fieldName": "tab_icon_id", "fieldType": "Integer"},
+    {"fieldName": "tab_mood_id", "fieldType": "Integer"},
+    {"fieldName": "tab_weather_id", "fieldType": "Integer"},
+    {"fieldName": "bind_user_id", "fieldType": "Integer"},
+    {"fieldName": "bind_type", "fieldType": "Integer"},
+    {"fieldName": "table_message_id", "fieldType": "Integer"}
+  ],
+  "indexes": [
+    {"indexName": "field1Index", "indexList": [{"fieldName":"id","sortType":"ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+DB Class
+typescript
+import { cloudDatabase } from '@kit.CloudFoundationKit';
+
+class push_table_day extends cloudDatabase.DatabaseObject {
+  public id: number;
+  public user_id = 0;
+  public title: string;
+  public day: string;
+  public time_type: number;
+  public menu_id: number;
+  public is_show_top: boolean;
+  public is_show_time: boolean;
+  public tab_color_id: number;
+  public tab_icon_id: number;
+  public tab_mood_id: number;
+  public tab_weather_id: number;
+  public bind_user_id: number;
+  public bind_type: number;
+  public table_message_id: number;
+
+  public naturalbase_ClassName(): string {
+    return 'push_table_day';
+  }
+}
+
+export { push_table_day };
+Entity Class
+typescript
+class PushTableDay {
+  id: number;
+  user_id: number = 0;
+  title: string;
+  day: string;
+  time_type: number;
+  menu_id: number;
+  is_show_top: boolean;
+  is_show_time: boolean;
+  tab_color_id: number;
+  tab_icon_id: number;
+  tab_mood_id: number;
+  tab_weather_id: number;
+  bind_user_id: number;
+  bind_type: number;
+  table_message_id: number;
+
+  constructor() {}
+
+  setId(id: number): void {
+    this.id = id;
+  }
+
+  getId(): number {
+    return this.id;
+  }
+
+  setUser_id(user_id: number): void {
+    this.user_id = user_id;
+  }
+
+  getUser_id(): number {
+    return this.user_id;
+  }
+
+  setTitle(title: string): void {
+    this.title = title;
+  }
+
+  getTitle(): string {
+    return this.title;
+  }
+
+  setDay(day: string): void {
+    this.day = day;
+  }
+
+  getDay(): string {
+    return this.day;
+  }
+
+  setTime_type(time_type: number): void {
+    this.time_type = time_type;
+  }
+
+  getTime_type(): number {
+    return this.time_type;
+  }
+
+  setMenu_id(menu_id: number): void {
+    this.menu_id = menu_id;
+  }
+
+  getMenu_id(): number {
+    return this.menu_id;
+  }
+
+  setIs_show_top(is_show_top: boolean): void {
+    this.is_show_top = is_show_top;
+  }
+
+  getIs_show_top(): boolean {
+    return this.is_show_top;
+  }
+
+  setIs_show_time(is_show_time: boolean): void {
+    this.is_show_time = is_show_time;
+  }
+
+  getIs_show_time(): boolean {
+    return this.is_show_time;
+  }
+
+  setTab_color_id(tab_color_id: number): void {
+    this.tab_color_id = tab_color_id;
+  }
+
+  getTab_color_id(): number {
+    return this.tab_color_id;
+  }
+
+  setTab_icon_id(tab_icon_id: number): void {
+    this.tab_icon_id = tab_icon_id;
+  }
+
+  getTab_icon_id(): number {
+    return this.tab_icon_id;
+  }
+
+  setTab_mood_id(tab_mood_id: number): void {
+    this.tab_mood_id = tab_mood_id;
+  }
+
+  getTab_mood_id(): number {
+    return this.tab_mood_id;
+  }
+
+  setTab_weather_id(tab_weather_id: number): void {
+    this.tab_weather_id = tab_weather_id;
+  }
+
+  getTab_weather_id(): number {
+    return this.tab_weather_id;
+  }
+
+  setBind_user_id(bind_user_id: number): void {
+    this.bind_user_id = bind_user_id;
+  }
+
+  getBind_user_id(): number {
+    return this.bind_user_id;
+  }
+
+  setBind_type(bind_type: number): void {
+    this.bind_type = bind_type;
+  }
+
+  getBind_type(): number {
+    return this.bind_type;
+  }
+
+  setTable_message_id(table_message_id: number): void {
+    this.table_message_id = table_message_id;
+  }
+
+  getTable_message_id(): number {
+    return this.table_message_id;
+  }
+}
+
+export { PushTableDay };
+
+Implement the home page title bar and floating add button:
+
+typescript
+import { CommonTopBar } from './widget/CommonTopBar';
+
+@Entry
+@Component
+struct Index {
+  build() {
+    Column() {
+      CommonTopBar({ title: "Home", alpha: 0, titleAlignment: TextAlign.Center, backButton: false });
+      Stack({ alignContent: Alignment.BottomEnd }) {
+        Column() {
+          List() {
+            // Date plans will be added here
+          }
+        }
+        .height('100%')
+        .width('100%');
+
+        Text("+")
+          .fontSize(38)
+          .width(60)
+          .textAlign(TextAlign.Center)
+          .backgroundColor("#ff65c8ee")
+          .fontWeight(FontWeight.Bold)
+          .fontColor(Color.Black)
+          .height(60)
+          .borderRadius(30)
+          .margin({ bottom: 80, right: 40 });
+      }
+      .height('100%')
+      .width('100%');
+    }
+    .height('100%')
+    .width('100%')
+    .backgroundColor(Color.White);
+  }
+}
+
+
+
+
+This completes the creation of the form and the implementation of the title bar with a floating button.
