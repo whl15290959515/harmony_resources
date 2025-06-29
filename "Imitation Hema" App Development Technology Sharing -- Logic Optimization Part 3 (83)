@@ -1,0 +1,229 @@
+
+Technology Stack
+AppGallery Connect
+Development Preparation
+The app's functionality is approaching completeness, with fewer bugs and missing details. This section focuses on further optimizations:
+
+The points page currently only shows all points transactions but lacks segmented displays for income and expenditure details.
+Expired coupons have not been marked as "expired" in status.
+Functionality Analysis
+Segmented Points List Display: Filter points data by type (points_type) from the total dataset and display them in corresponding custom components.
+Expired Coupon Handling: Query all coupons on page load, update their status to "expired" based on date comparisons, and display the modified data.
+Code Implementation
+First, implement the points income list component with filtering:
+
+typescript
+import { PointsInfo } from '../../../entity/PointsInfo';
+
+@Component
+export struct GetPoints {
+  @Prop pointsList: PointsInfo[] = [];
+  @State flag: boolean = false;
+
+  aboutToAppear(): void {
+    this.pointsList = filterPointsByType(this.pointsList);
+    this.flag = true;
+  }
+
+  @Builder
+  recordList() {
+    List({ space: 10 }) {
+      ForEach(this.pointsList, (item: PointsInfo) => {
+        ListItem() {
+          this.allItem(item);
+        }
+      });
+    }
+    .backgroundColor("#f7f7f7").padding({ top: 10 })
+    .sticky(StickyStyle.Header);
+  }
+
+  @Builder
+  allItem(item: PointsInfo) {
+    Row({ space: 10 }) {
+      Image(item.points_type === '0' ? $r('app.media.shouru') : $r('app.media.duihuan'))
+        .height(35)
+        .width(35)
+        .objectFit(ImageFit.Contain)
+        .interpolation(ImageInterpolation.High)
+        .borderRadius(25);
+      Column({ space: 10 }) {
+        Text(item.points_type === '0' ? "Obtained" : "Redeemed")
+          .fontColor("#333333")
+          .fontSize(16);
+        Text(item.address)
+          .fontColor("#999999")
+          .fontSize(14);
+      }
+      .alignItems(HorizontalAlign.Start);
+      Blank();
+
+      Column({ space: 10 }) {
+        Text(item.points_type === '0' ? "$" + item.points : "-$" + item.points)
+          .fontColor(item.points_type === '0' ? "#00B644" : "#EC2400")
+          .fontSize(16)
+          .margin({ top: 1 });
+
+        Text(item.create_time)
+          .fontColor("#999999")
+          .fontSize(14)
+          .margin({ top: 1 });
+      }
+      .alignItems(HorizontalAlign.End);
+    }
+    .justifyContent(FlexAlign.SpaceBetween)
+    .padding({ left: 12, right: 12 })
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
+    .height(71)
+    .backgroundColor(Color.White);
+  }
+
+  build() {
+    Column() {
+      if (this.flag) {
+        this.recordList();
+      }
+    }
+    .height('100%')
+    .layoutWeight(1)
+    .width('100%');
+  }
+}
+
+function filterPointsByType(pointsList: PointsInfo[]): PointsInfo[] {
+  return pointsList.filter(item => item.points_type === '0');
+}
+
+Next, implement the points expenditure list component:
+
+typescript
+import { PointsInfo } from '../../../entity/PointsInfo';
+
+@Component
+export struct OutPoints {
+  @Prop pointsList: PointsInfo[] = [];
+  @State flag: boolean = false;
+
+  aboutToAppear(): void {
+    this.pointsList = filterPointsByType(this.pointsList);
+    this.flag = true;
+  }
+
+  @Builder
+  recordList() {
+    List({ space: 10 }) {
+      ForEach(this.pointsList, (item: PointsInfo) => {
+        ListItem() {
+          this.allItem(item);
+        }
+      });
+    }
+    .backgroundColor("#f7f7f7").padding({ top: 10 })
+    .sticky(StickyStyle.Header);
+  }
+
+  @Builder
+  allItem(item: PointsInfo) {
+    Row({ space: 10 }) {
+      Image(item.points_type === '0' ? $r('app.media.shouru') : $r('app.media.duihuan'))
+        .height(35)
+        .width(35)
+        .objectFit(ImageFit.Contain)
+        .interpolation(ImageInterpolation.High)
+        .borderRadius(25);
+      Column({ space: 10 }) {
+        Text(item.points_type === '0' ? "Obtained" : "Redeemed")
+          .fontColor("#333333")
+          .fontSize(16);
+        Text(item.address)
+          .fontColor("#999999")
+          .fontSize(14);
+      }
+      .alignItems(HorizontalAlign.Start);
+      Blank();
+
+      Column({ space: 10 }) {
+        Text(item.points_type === '0' ? "$" + item.points : "-$" + item.points)
+          .fontColor(item.points_type === '0' ? "#00B644" : "#EC2400")
+          .fontSize(16)
+          .margin({ top: 1 });
+
+        Text(item.create_time)
+          .fontColor("#999999")
+          .fontSize(14)
+          .margin({ top: 1 });
+      }
+      .alignItems(HorizontalAlign.End);
+    }
+    .justifyContent(FlexAlign.SpaceBetween)
+    .padding({ left: 12, right: 12 })
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
+    .height(71)
+    .backgroundColor(Color.White);
+  }
+
+  build() {
+    Column() {
+      if (this.flag) {
+        this.recordList();
+      }
+    }
+    .height('100%')
+    .layoutWeight(1)
+    .width('100%');
+  }
+}
+
+function filterPointsByType(pointsList: PointsInfo[]): PointsInfo[] {
+  return pointsList.filter(item => item.points_type === '1');
+}
+
+Implement coupon expiration status optimization by comparing expiration dates with the current date:
+
+typescript
+thisTime(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
+compareDateTime(time1: string, time2: string): 1 | -1 | 0 {
+  const date1 = new Date(time1.replace(' ', 'T')); // Convert to ISO format
+  const date2 = new Date(time2.replace(' ', 'T'));
+  const timestamp1 = date1.getTime();
+  const timestamp2 = date2.getTime();
+  if (timestamp1 > timestamp2) return 1;
+  if (timestamp1 < timestamp2) return -1;
+  return 0;
+}
+
+async aboutToAppear(): Promise<void> {
+  const value = await StorageUtils.getAll('user');
+  if (value !== "") {
+    this.user = JSON.parse(value);
+  }
+  let databaseZone = cloudDatabase.zone('default');
+  let condition = new cloudDatabase.DatabaseQuery(coupon_mall);
+  condition.equalTo("user_id", this.user?.user_id);
+  let listData = await databaseZone.query(condition);
+  let json = JSON.stringify(listData);
+  let data: CouponMall[] = JSON.parse(json);
+
+  // Filter valid coupons (not expired)
+  this.couponList = data.filter(item => 
+    this.compareDateTime(this.thisTime(), item.end_time) !== 1
+  );
+}
+
+
+
+
+
+These optimizations enable segmented display of points transactions and ensure coupons are marked as expired based on their validity period, enhancing data accuracy and user experience.
