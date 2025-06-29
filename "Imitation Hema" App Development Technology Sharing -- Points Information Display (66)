@@ -1,0 +1,124 @@
+
+Technology Stack
+AppGallery Connect
+Development Preparation
+In the previous section, we implemented data insertion. Now we need to display detailed points information in the tabs. We only need to query data from the cloud and render it on the page to achieve the desired effect.
+Functionality Analysis
+We will use custom components for data display to keep the page structure clean. When entering the page, we first check if user information exists. If so, we query data by user ID, pass the result to the custom component for display, and distinguish between the two data states ("income" and "expenditure") in the "All" tab of the list.
+Code Implementation
+First, query cloud data when entering the page:
+
+css
+@State pointsList: PointsInfo[] = []
+
+async aboutToAppear(): Promise<void> {
+  const value = await StorageUtils.getAll('user');
+  if (value !== "") {
+    this.user = JSON.parse(value);
+    if (this.user !== null) {
+      const databaseZone = cloudDatabase.zone('default');
+      const condition = new cloudDatabase.DatabaseQuery(user_info);
+      condition.equalTo("user_id", this.user?.user_id);
+      const listData = await databaseZone.query(condition);
+      const json = JSON.stringify(listData);
+      const data: UserInfo[] = JSON.parse(json);
+      this.userInfo = data[0];
+      this.points = data[0].points;
+      hilog.error(0x0000, 'testTag', `Failed to query data, code: ${data}`);
+
+      const condition1 = new cloudDatabase.DatabaseQuery(points_info);
+      condition.equalTo("user_id", this.user?.user_id);
+      const listData1 = await databaseZone.query(condition1);
+      const json1 = JSON.stringify(listData1);
+      const data1: PointsInfo[] = JSON.parse(json1);
+      this.pointsList = data1;
+      hilog.error(0x0000, 'testTag', `Failed to query data, code: ${data1}`);
+    }
+  }
+}
+
+After retrieving the data, create a custom component for list display and arrange the layout:
+
+css
+import { PointsInfo } from '../../../entity/PointsInfo'
+
+@Component
+export struct AllPoints {
+  @Prop pointsList: PointsInfo[] = []
+
+  @Builder
+  recordList() {
+    List({ space: 10 }) {
+      ForEach(this.pointsList, (item: PointsInfo) => {
+        ListItem() {
+          this.allItem(item)
+        }
+      })
+    }
+    .backgroundColor("#f7f7f7").padding({ top: 10 })
+    .sticky(StickyStyle.Header)
+  }
+
+  @Builder
+  allItem(item: PointsInfo) {
+    Row({ space: 10 }) {
+      Image(item.points_type === '0' ? $r('app.media.shouru') : $r('app.media.tixian'))
+        .height(35)
+        .width(35)
+        .objectFit(ImageFit.Contain)
+        .interpolation(ImageInterpolation.High)
+        .borderRadius(25)
+      Column({ space: 10 }) {
+        Text(item.points_type === '0' ? "获得" : "兑换")
+          .fontColor("#333333")
+          .fontSize(16)
+        Text(item.address)
+          .fontColor("#999999")
+          .fontSize(14)
+      }
+      .alignItems(HorizontalAlign.Start)
+      Blank()
+
+      Column({ space: 10 }) {
+        Text(item.points_type === '0' ? "$" + item.points : "-$" + item.points)
+          .fontColor(item.points_type === '0' ? "#00B644" : "#EC2400")
+          .fontSize(16)
+          .margin({ top: 1 })
+
+        Text(item.create_time)
+          .fontColor("#999999")
+          .fontSize(14)
+          .margin({ top: 1 })
+      }
+      .alignItems(HorizontalAlign.End)
+    }
+    .justifyContent(FlexAlign.SpaceBetween)
+    .padding({ left: 12, right: 12 })
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
+    .height(71)
+    .backgroundColor(Color.White)
+  }
+
+  build() {
+    Column() {
+      this.recordList()
+    }
+    .height('100%')
+    .layoutWeight(1)
+    .width('100%')
+  }
+}
+
+
+
+
+
+
+Import the custom component on the page:
+
+css
+AllPoints({ pointsList: this.pointsList })
+
+
+This completes the display of points information.
