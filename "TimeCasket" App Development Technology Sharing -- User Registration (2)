@@ -1,0 +1,119 @@
+
+Technology Stack
+AppGallery Connect
+Development Preparation
+In the previous section, we implemented the static user login page. Now, we need to handle user data insertion to enable full login functionality. This section focuses on implementing user registration and inserting user data into the database, which will allow us to manage bound user data in subsequent features.
+Functionality Analysis
+To insert user data:
+
+Collect user input from the registration form.
+Generate default IDs (primary ID, user ID) and set binding-related fields (to be updated later during relationship binding).
+Validate user input and check for duplicate usernames to ensure uniqueness.
+Code Implementation
+First, implement the registration page UI and basic validation:
+
+typescript
+import promptAction from '@ohos.promptAction';
+import { cloudDatabase } from '@kit.CloudFoundationKit';
+import { User } from '../entity/User';
+import { user } from '../CloudDb/user';
+import showToast from '../utils/ToastUtils';
+import { CommonTopBar } from '../widget/CommonTopBar';
+
+let databaseZone = cloudDatabase.zone('default');
+
+@Entry
+@Component
+struct RegisterPage {
+  @State acc: string = '';
+  @State psw: string = '';
+  controller: TextInputController = new TextInputController();
+
+  async register(): Promise<void> {
+    if (this.acc === '' && this.psw === '') {
+      promptAction.showToast({ message: "Account or password cannot be empty" });
+      return;
+    } else {
+      let condition = new cloudDatabase.DatabaseQuery(user);
+      condition.equalTo("user_name", this.acc);
+      let listData = await databaseZone.query(condition);
+      let json = JSON.stringify(listData);
+      let data1: User[] = JSON.parse(json);
+      if (data1.length > 0) {
+        showToast("User already exists");
+      } else {
+        // Proceed with registration
+      }
+    }
+  }
+
+  build() {
+    Column({ space: 20 }) {
+      CommonTopBar({ title: "User Registration", alpha: 0, titleAlignment: TextAlign.Center, backButton: false });
+      Column() {
+        Image($r("app.media.logo"))
+          .width(120).height(120).borderRadius(60);
+
+        TextInput({ text: this.acc, placeholder: 'Please enter account' })
+          .backgroundColor("#f6f6f6")
+          .placeholderColor("#ff999595")
+          .fontColor("#333333")
+          .maxLength(11)
+          .type(InputType.Number)
+          .onChange((value: String) => {
+            this.acc = value.toString();
+          }).margin(20);
+
+        TextInput({ text: this.psw, placeholder: 'Please enter password' })
+          .backgroundColor("#f6f6f6")
+          .placeholderColor("#ff999595")
+          .fontColor("#333333")
+          .type(InputType.Password)
+          .onChange((value: String) => {
+            this.psw = value.toString();
+          }).margin(20);
+
+        Button('Confirm', { type: ButtonType.Capsule, stateEffect: false })
+          .onClick(() => {
+            this.register();
+          })
+          .fontColor(Color.White)
+          .width('80%')
+          .height(40)
+          .margin(40)
+          .backgroundColor("#ff65c8ee");
+
+        Blank().margin(30);
+      }
+      .width('100%');
+    }
+    .height('100%')
+    .backgroundColor('#FFFFFF')
+    .justifyContent(FlexAlign.Start);
+  }
+}
+
+Implement user creation logic:
+
+typescript
+let adduser = new user();
+adduser.id = Math.floor(Math.random() * 1000000);
+adduser.user_id = Math.floor(Math.random() * 1000000);
+adduser.bind_user_id = 0;
+adduser.bind_type = 0;
+adduser.user_name = this.acc;
+adduser.psw = this.psw;
+adduser.nike_name = 'Default User Name';
+adduser.url = '';
+adduser.sex = '';
+adduser.birthday = '';
+adduser.phone = '';
+
+let num = await databaseZone.upsert(adduser);
+if (num > 0) {
+  showToast("User registered successfully");
+}
+
+
+
+This completes the user registration functionality. Additional user information can be set by the user later.
