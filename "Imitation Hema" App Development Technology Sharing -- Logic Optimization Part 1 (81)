@@ -1,0 +1,76 @@
+
+Technology Stack
+AppGallery Connect
+Development Preparation
+With the implementation of the points redemption order logic in the previous section, the app's functionality is more complete. This section focuses on optimizing missing features, fixing bugs, and adding new logic. Specifically, we'll implement order pickup confirmation for mall orders and points refund for canceled redemption orders to prevent 积分 from being deducted without refund when orders are canceled.
+Functionality Analysis
+Mall Order Pickup Confirmation: Add a "Confirm Pickup" button to the awaiting shipment list and implement order status modification.
+Points Refund for Canceled Orders: Refund points to the user's account when a redemption order is canceled.
+Code Implementation
+Add a "Confirm Pickup" button to the order list with corresponding logic:
+
+typescript
+Row({ space: 10 }) {
+  Text()
+  Blank()
+  Text("Confirm Pickup")
+    .fontColor(Color.Black)
+    .fontSize(12)
+    .padding(5)
+    .borderRadius(10)
+    .backgroundColor(Color.Pink)
+    .onClick(async () => {
+      let orderPush = new order_list();
+      orderPush.id = item.id;
+      orderPush.user_id = this.user!.user_id;
+      orderPush.order_product_id = item.order_product_id;
+      orderPush.order_code = item.order_code;
+      orderPush.order_status = 1; // 1 indicates order picked up
+      orderPush.order_remark = item.order_remark;
+      orderPush.address = item.address;
+      orderPush.nickname = item.nickname;
+      orderPush.phone = item.phone;
+      orderPush.order_create_time = item.order_create_time;
+      orderPush.order_pay_time = this.formatCurrentDate();
+      orderPush.order_delivery_time = this.formatCurrentDate();
+      let num = await databaseZone.upsert(orderPush);
+      if (num > 0) {
+        this.onRefresh();
+        showToast("Pickup confirmed successfully");
+      }
+    })
+}
+.width('100%');
+
+Implement points refund when a redemption order is canceled:
+
+typescript
+if (num > 0) {
+  showToast("Redemption canceled successfully");
+
+  // Refund points to user account
+  let points = new points_info();
+  points.id = Math.floor(Math.random() * 1000000);
+  points.user_id = this.user!.user_id;
+  points.points = String(item.points); // Refund the deducted points
+  points.points_type = '0'; // 0 indicates points added
+  points.address = 'Points refund for canceled order';
+  points.year = this.year;
+  points.month = this.month;
+  points.day = this.day;
+  points.time = this.time;
+  points.create_time = this.year + "-" + this.month + "-" + this.day + " " + this.time;
+  let nums1 = await databaseZone.upsert(points);
+  
+  // Update user's points balance
+  let userData = new user_info();
+  userData.id = this.userInfo!.id;
+  userData.points = this.userInfo!.points + parseInt(item.points); // Add points back
+  await databaseZone.upsert(userData);
+  
+  this.onRefresh();
+}
+
+
+
+This ensures points are refunded when an order is canceled, preventing 积分 loss for users.
