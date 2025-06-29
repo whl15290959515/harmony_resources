@@ -1,0 +1,119 @@
+
+Technology Stack
+AppGallery Connect
+Development Preparation
+In the previous section, we created the points product table, enabling more operations on points. We first added corresponding data to the cloud database. In this section, we will query and display the stored data to users.
+Functionality Analysis
+First, we need to query data when entering the page. After retrieving the data, define a corresponding collection, create a waterfall flow component, pass the data into it for display, and transmit the data where the component is referenced.
+Code Implementation
+First, query data when entering the page:
+
+typescript
+@State listProduct: PointsProduct[] = []
+async aboutToAppear(): Promise<void> {
+  let databaseZone = cloudDatabase.zone('default');
+  let condition = new cloudDatabase.DatabaseQuery(points_product);
+  let listData = await databaseZone.query(condition);
+  let json = JSON.stringify(listData);
+  let data: PointsProduct[] = JSON.parse(json);
+  this.listProduct = data;
+  hilog.error(0x0000, 'testTag', `Failed to query data, code: ${data}`);
+}
+
+Next, create a custom component and define the style for a single data item:
+
+typescript
+@Builder
+Item(item: PointsProduct) {
+  Column() {
+    Image(item.url)
+      .width('100%')
+      .aspectRatio(1)
+      .objectFit(ImageFit.Cover)
+      .borderRadius({ topLeft: 10, topRight: 10 })
+
+    Column() {
+      Text(item.name)
+        .fontSize(16)
+        .fontColor('#333')
+        .margin({ bottom: 4 })
+
+      Text(item.text_message)
+        .fontSize(12)
+        .fontColor('#666')
+        .margin({ bottom: 8 })
+
+      Row() {
+        Text() {
+          Span("$")
+            .fontColor(Color.Red)
+            .fontSize(14)
+          Span(String(item.points))
+            .fontSize(16)
+            .fontColor(Color.Red)
+        }
+
+        Blank()
+        Column() {
+          Image($r('app.media.cart'))
+            .width(20)
+            .height(20)
+        }
+        .justifyContent(FlexAlign.Center)
+        .width(36)
+        .height(36)
+        .backgroundColor("#ff2bd2fa")
+        .borderRadius(18)
+      }
+      .margin({ top: 10 })
+      .width('100%')
+      .justifyContent(FlexAlign.SpaceBetween)
+    }
+    .alignItems(HorizontalAlign.Start)
+    .padding(12)
+  }
+  .backgroundColor(Color.White)
+  .borderRadius(12)
+  .onClick(() => {
+    // Navigation logic
+  })
+}
+
+Create the corresponding layout and introduce the Item component:
+
+typescript
+build() {
+  WaterFlow() {
+    ForEach(this.goodsList, (item: PointsProduct, index) => {
+      FlowItem() {
+        this.Item(item)
+      }
+      .margin({ bottom: 12 })
+    })
+  }
+  .padding(10)
+  .columnsTemplate('1fr 1fr')
+  .columnsGap(12)
+  .onAreaChange((oldVal, newVal) => {
+    this.columns = newVal.width > 600 ? 2 : 1
+  })
+}
+
+Import the component on the page:
+
+typescript
+@State listProduct: PointsProduct[] = []
+
+build() {
+  Column() {
+    CommonTopBar({ title: "Points Redemption", alpha: 0, titleAlignment: TextAlign.Center, backButton: true })
+    ProductItem({ goodsList: this.listProduct })
+  }
+  .backgroundColor(Color.White)
+  .height('100%')
+  .width('100%')
+}
+
+
+
+This completes the display of the points redemption list.
