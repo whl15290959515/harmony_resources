@@ -1,0 +1,160 @@
+
+
+Technology Stack
+Appgallery Connect
+
+Development Preparation
+In the previous section, we optimized the order logic. Now our app's functionality is more comprehensive, and with each iteration, there are fewer logical oversights. Continuing with the optimization, in the previous business logic, the personal center page displayed the user's balance and an entry to the points mall. Here, we'll show the exact balance value and change the points mall entry to a more general points-related features entry. Additionally, we'll display the current account's points balance.
+
+Functionality Analysis
+Since switching tabs triggers a refresh request within the component, we need to query userinfo based on the current user ID and display it on the page. When the user logs out, we'll set default states for points and balance.
+
+Code Implementation
+First, query userinfo in the personal center page:
+
+css
+async onRefresh(): Promise<void> {
+  if (this.currentIndexCheck==this.currentIndex) {
+    const value = await StorageUtils.getAll('user');
+    if (value != "") {
+      this.user=JSON.parse(value)
+      if (this.user!=null) {
+        let databaseZone = cloudDatabase.zone('default');
+        let condition = new cloudDatabase.DatabaseQuery(user_info);
+        condition.equalTo("user_id",this.user?.user_id)
+        let listData = await databaseZone.query(condition);
+        let json = JSON.stringify(listData)
+        let data2:UserInfo[]= JSON.parse(json)
+        this.userInfo=data2[0]
+        hilog.error(0x0000, 'testTag', `Failed to query data, code: ${data2}`);
+      }
+    }else {
+      this.userInfo=null
+      this.user=null
+    }
+    this.flag=true
+  }
+}
+
+After querying, define variables to hold balance and points with default empty values:
+
+css
+@State money:string=''
+@State score:string=''
+
+Assign values to the variables:
+
+css
+let databaseZone = cloudDatabase.zone('default');
+let condition = new cloudDatabase.DatabaseQuery(user_info);
+condition.equalTo("user_id",this.user?.user_id)
+let listData = await databaseZone.query(condition);
+let json = JSON.stringify(listData)
+let data2:UserInfo[]= JSON.parse(json)
+this.userInfo=data2[0]
+hilog.error(0x0000, 'testTag', `Failed to query data, code: ${data2}`);
+this.money=String(data2[0].money)
+this.score=String(data2[0].points)
+
+Populate the component with the received data:
+
+css
+Row(){
+  Row(){
+    Image($r('app.media.balance'))
+      .margin({left:8})
+      .height(34)
+      .width(34)
+      .objectFit(ImageFit.Contain)
+      .interpolation(ImageInterpolation.High)
+    Column(){
+      Text(this.money!=''?"￥"+this.money:"--")
+        .fontSize(14)
+        .fontColor($r('app.color.color_333'))
+      Row(){
+        Text("余额")
+          .fontSize(13)
+          .fontColor($r('app.color.color_999'))
+
+        Image($r('app.media.back_right_recycle'))
+          .margin({left:6})
+          .height(14)
+          .width(14)
+          .objectFit(ImageFit.Contain)
+          .interpolation(ImageInterpolation.High)
+      }
+    }
+    .alignItems(HorizontalAlign.Start)
+    .margin({left:13})
+    .onClick(()=>{
+      router.pushUrl({url:'pages/recycle/money/RecycleMoneyPage'})
+    })
+  }
+  .width('40%')
+  Divider()
+    .vertical(true)
+    .height('100%').margin({top:5,bottom:5})
+    .margin({left:20})
+  Row(){
+    Image($r('app.media.points'))
+      .height(34)
+      .width(34)
+      .objectFit(ImageFit.Contain)
+      .interpolation(ImageInterpolation.High)
+    Column(){
+      Text(this.score!=''?"$"+this.score:"--")
+        .fontSize(14)
+        .fontColor($r('app.color.color_333'))
+      Row(){
+        Text("积分")
+          .fontSize(13)
+          .fontColor($r('app.color.color_reds'))
+        Image($r('app.media.back_right_recycle'))
+          .margin({left:6})
+          .height(14)
+          .width(14)
+          .objectFit(ImageFit.Contain)
+          .interpolation(ImageInterpolation.High)
+      }
+
+    }
+    .margin({left:8})
+    .alignItems(HorizontalAlign.Start)
+  }
+  .margin({left:8})
+  .alignItems(VerticalAlign.Center)
+  .width('40%')
+
+}
+.justifyContent(FlexAlign.Start)
+.height(80)
+.width('100%')
+.padding(8)
+.margin({top:40})
+.backgroundColor(Color.White)
+.borderRadius(8)
+
+The data population is complete, but when the user logs out from the personal center, the data doesn't update. Reset the variables when receiving the logout event:
+
+css
+if (value != "") {
+  this.user = JSON.parse(value)
+  if (this.user != null) {
+    let databaseZone = cloudDatabase.zone('default');
+    let condition = new cloudDatabase.DatabaseQuery(user_info);
+    condition.equalTo("user_id", this.user?.user_id)
+    let listData = await databaseZone.query(condition);
+    let json = JSON.stringify(listData)
+    let data2: UserInfo[] = JSON.parse(json)
+    this.userInfo = data2[0]
+    hilog.error(0x0000, 'testTag', `Failed to query data, code: ${data2}`);
+  }
+}else {
+  this.userInfo=null
+  this.user=null
+  this.money=''
+  this.score=''
+}
+
+
+This completes the optimization of the personal center page logic.
