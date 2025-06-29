@@ -1,0 +1,163 @@
+
+Technology Stack
+AppGallery Connect
+Development Preparation
+In the previous section, we implemented the framework for the redemption order display page. In this section, we will display redemption orders, which by default are in the "awaiting shipment" status after submission, using a list format.
+Functionality Analysis
+When entering the page, query corresponding orders by the user's user ID. After obtaining the order list data, display it in the TabContent using a list.
+Code Implementation
+Retrieve user information after entering the page:
+
+typescript
+const value = await StorageUtils.getAll('user');
+if (value !== "") {
+  this.user = JSON.parse(value);
+}
+
+Query the corresponding redemption order list by the user's user ID:
+
+typescript
+@State pointsList: PointsOrderInfo[] = [];
+
+async aboutToAppear(): Promise<void> {
+  const value = await StorageUtils.getAll('user');
+  if (value !== "") {
+    this.user = JSON.parse(value);
+    if (this.user !== null) {
+      let databaseZone = cloudDatabase.zone('default');
+      let condition = new cloudDatabase.DatabaseQuery(points_order_info);
+      condition.equalTo("user_id", this.user?.user_id);
+      let listData = await databaseZone.query(condition);
+      let json = JSON.stringify(listData);
+      let data: PointsOrderInfo[] = JSON.parse(json);
+      this.pointsList = data;
+      hilog.error(0x0000, 'testTag', `Failed to query data, code: ${data}`);
+    }
+  }
+}
+
+Item display component:
+
+typescript
+import { PointsOrderInfo } from '../../../entity/PointsOrderInfo';
+
+@Component
+export struct PointsItem {
+  @Link orderList: PointsOrderInfo[];
+
+  build() {
+    Column() {
+      List({ space: 10 }) {
+        ForEach(this.orderList, (item: PointsOrderInfo, index: number) => {
+          ListItem() {
+            Column({ space: 10 }) {
+              Row() {
+                Text("Order No.: " + item.order_code)
+                  .fontColor(Color.Black)
+                  .fontSize(14);
+
+                Text("Awaiting Shipment")
+                  .fontColor(Color.Black)
+                  .fontSize(14);
+              }
+              .justifyContent(FlexAlign.SpaceBetween)
+              .width('100%');
+
+              Row({ space: 10 }) {
+                Image($r('app.media.duihuan'))
+                  .height(40)
+                  .width(40)
+                  .borderRadius(5);
+
+                Column({ space: 10 }) {
+                  Text("Product Type: Points Redemption")
+                    .fontColor(Color.Black)
+                    .fontSize(14);
+
+                  Text("Redemption Time: " + item.crete_time)
+                    .fontColor(Color.Black)
+                    .fontSize(14);
+
+                  Text("Contact: " + item.phone)
+                    .fontColor(Color.Black)
+                    .fontSize(14);
+
+                  Text("Pickup Address: " + item.address)
+                    .fontColor(Color.Black)
+                    .fontSize(14);
+                }.alignItems(HorizontalAlign.Start);
+              }
+              .margin({ top: 10 })
+              .alignItems(VerticalAlign.Top)
+              .width('100%')
+              .justifyContent(FlexAlign.Start);
+
+              Row({ space: 10 }) {
+                Text()
+                Blank()
+                Text("Confirm Pickup")
+                  .fontColor(Color.Black)
+                  .fontSize(12)
+                  .padding(5)
+                  .borderRadius(10)
+                  .backgroundColor(Color.Pink);
+                Text("Cancel Reservation")
+                  .fontColor(Color.Black)
+                  .fontSize(12)
+                  .padding(5)
+                  .borderRadius(10)
+                  .border({ width: 1, color: Color.Grey });
+              }
+              .width('100%');
+            }
+            .padding(10)
+            .backgroundColor(Color.White)
+            .borderRadius(10)
+            .width('100%')
+            .justifyContent(FlexAlign.SpaceBetween)
+            .onClick(() => {
+              // Navigation logic
+            });
+          }
+        });
+      }
+      .padding(10);
+    }
+  }
+}
+
+Reference the custom component in TabContent and pass the queried list:
+
+typescript
+TabContent() {
+  Column() {
+    PointsItem({ orderList: this.pointsList })
+  }.width('100%').height('100%')
+}.tabBar(this.tabBuilder(0, 'Awaiting Shipment'))
+
+Navigate to the redemption order display page after confirming successful redemption:
+
+typescript
+router.replaceUrl({ url: "pages/recycle/points/PointsOrderListPage" })
+
+Add a list display entry on the points display page:
+
+typescript
+.onClick(() => {
+  switch (item.name) {
+    case "Points Level":
+      router.pushUrl({ url: '' });
+      break;
+    case "Redemption Orders":
+      router.pushUrl({ url: 'pages/recycle/points/PointsOrderListPage' });
+      break;
+    case "Points Redemption":
+      router.pushUrl({ url: 'pages/recycle/points/PointsProductPage' });
+      break;
+    default:
+      break;
+  }
+})
+
+
+This implements the awaiting shipment order list.
