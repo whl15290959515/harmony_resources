@@ -1,0 +1,343 @@
+
+Technology Stack
+AppGallery Connect
+Development Preparation
+Most functions related to the points redemption order list have been implemented. Currently, we lack an order details viewing function. To maintain UI consistency, the order details page should resemble the styles of other order and recycling order details pages.
+Functionality Analysis
+To implement the order details page:
+
+Obtain the order ID from the list item click event.
+Query corresponding order information by ID.
+Display different order statuses based on order_type.
+Show different timestamps according to the order status.
+Code Implementation
+First, add a click event to the order list item to pass the order ID to the details page:
+
+typescript
+.onClick(() => {
+  router.pushUrl({ url: "pages/recycle/points/PointsOrderDetailsPage", params: { code: item.id } })
+})
+
+The order details page receives the ID and queries order data:
+
+typescript
+@State orderInfo: PointsOrderInfo | null = null;
+@State orderCode: string = '';
+@State flag: boolean = false;
+@State titleStr: string = '';
+@State msgStr: string = '';
+
+let params = (this.getUIContext().getRouter().getParams() as Record<string, string>)['code'];
+if (params !== undefined && params !== '') {
+  this.orderCode = params;
+}
+
+let databaseZone = cloudDatabase.zone('default');
+let condition = new cloudDatabase.DatabaseQuery(points_order_info);
+condition.equalTo("id", this.orderCode!);
+let listData = await databaseZone.query(condition);
+let json = JSON.stringify(listData);
+let data1: PointsOrderInfo[] = JSON.parse(json);
+this.orderInfo = data1[0];
+
+After querying the data, display the order status based on order_type:
+
+typescript
+if (this.orderInfo?.order_type === 0) {
+  this.titleStr = "Awaiting Pickup";
+  this.msgStr = "The courier has been notified to pick up on time, please wait patiently.";
+}
+if (this.orderInfo?.order_type === 1) {
+  this.titleStr = "Cancelled";
+  this.msgStr = "The order has been cancelled, thank you for your use.";
+}
+if (this.orderInfo?.order_type === 2) {
+  this.titleStr = "In Transit";
+  this.msgStr = "The package has been shipped and is urgently on its way!";
+}
+if (this.orderInfo?.order_type === 3) {
+  this.titleStr = "Completed";
+  this.msgStr = "The points redemption order has been completed.";
+}
+
+Display the order details:
+
+typescript
+Column() {
+  CommonTopBar({ title: "Order Details", alpha: 0, titleAlignment: TextAlign.Center, backButton: true });
+  Scroll() {
+    Column() {
+      Column({ space: 15 }) {
+        Text(this.titleStr)
+          .fontSize(20)
+          .width('100%')
+          .textAlign(TextAlign.Center)
+          .fontColor(Color.Black)
+          .fontWeight(FontWeight.Bold);
+
+        Text(this.msgStr)
+          .fontSize(16)
+          .fontColor(Color.Black)
+          .width('100%')
+          .textAlign(TextAlign.Center);
+      }.width('100%')
+      .padding(15)
+      .backgroundColor("#fff3574a")
+      .alignItems(HorizontalAlign.Start);
+
+      Divider().width('100%').height(5)
+        .color("#e6e6e6");
+
+      Column() {
+        Row({ space: 20 }) {
+          Image($r('app.media.order_location'))
+            .height(20)
+            .width(20);
+          Column() {
+            Row() {
+              Text(this.orderInfo?.nike_name)
+                .fontColor(Color.Black)
+                .fontSize(16)
+                .fontWeight(FontWeight.Bold);
+              Text(this.orderInfo?.phone)
+                .fontColor(Color.Black)
+                .fontSize(16)
+                .fontWeight(FontWeight.Bold)
+                .margin({ left: 20 });
+            }
+            Text(this.orderInfo?.address)
+              .fontColor(Color.Black)
+              .fontSize(16)
+              .margin({ top: 10 });
+          }
+          .padding(10)
+          .alignItems(HorizontalAlign.Start)
+          .width('100%');
+        }
+      }
+      .padding(10)
+      .alignItems(HorizontalAlign.Start)
+      .width('100%');
+
+      Divider().width('100%').height(0.8)
+        .color("#e6e6e6");
+
+      Column() {
+        Row() {
+          Row({ space: 10 }) {
+            Image($r('app.media.duihuan'))
+              .height(70)
+              .width(70)
+              .margin({ left: 10 })
+              .borderRadius(10);
+            Column({ space: 5 }) {
+              Text("Points Redemption")
+                .fontColor(Color.Black)
+                .fontSize(14);
+              Text("Points Deducted: " + this.orderInfo?.points)
+                .fontColor(Color.Grey)
+                .fontSize(14);
+            }
+            .alignItems(HorizontalAlign.Start);
+          }
+          .justifyContent(FlexAlign.Start)
+          .alignItems(VerticalAlign.Top);
+        }
+        .padding(10)
+        .width('100%')
+        .alignItems(VerticalAlign.Top)
+        .justifyContent(FlexAlign.SpaceBetween);
+
+        Divider()
+          .width('100%')
+          .height(1)
+          .backgroundColor("#f7f7f7");
+      }
+
+      Divider().width('100%').height(5)
+        .color("#e6e6e6");
+
+      Text("Courier Information")
+        .fontSize(18)
+        .fontColor(Color.Black)
+        .fontWeight(FontWeight.Bold)
+        .margin({ left: 15 });
+
+      Divider().width('100%').height(5)
+        .color("#e6e6e6");
+
+      Row() {
+        Text("Waybill No.:")
+          .fontSize(16)
+          .fontColor(Color.Black);
+        Blank();
+        Text(this.orderInfo?.order_code)
+          .fontColor(Color.Black)
+          .fontSize(14);
+      }
+      .justifyContent(FlexAlign.SpaceBetween)
+      .width('100%')
+      .padding(10);
+
+      Divider().width('100%').height(0.8)
+        .color("#e6e6e6");
+
+      Row() {
+        Text("Courier Company:")
+          .fontSize(16)
+          .fontColor(Color.Black);
+        Blank();
+        Text(this.orderInfo?.express_company)
+          .fontColor(Color.Black)
+          .fontSize(14);
+      }
+      .justifyContent(FlexAlign.SpaceBetween)
+      .width('100%')
+      .padding(10);
+
+      Divider().width('100%').height(0.8)
+        .color("#e6e6e6");
+
+      Row() {
+        Text("Courier:")
+          .fontSize(16)
+          .fontColor(Color.Black);
+        Blank();
+        Text(this.orderInfo?.express_people)
+          .fontSize(16)
+          .fontColor(Color.Black);
+      }
+      .justifyContent(FlexAlign.SpaceBetween)
+      .width('100%')
+      .padding(10);
+
+      Divider().width('100%').height(5)
+        .color("#e6e6e6");
+
+      Text("Order Information")
+        .fontSize(18)
+        .fontColor(Color.Black)
+        .fontWeight(FontWeight.Bold)
+        .margin({ left: 15 });
+
+      Divider().width('100%').height(5)
+        .color("#e6e6e6");
+
+      Row() {
+        Text("Contact:")
+          .fontSize(16)
+          .fontColor(Color.Black);
+        Blank();
+        Text(this.orderInfo?.nike_name + " " + this.orderInfo?.phone)
+          .fontColor(Color.Black)
+          .fontSize(14);
+      }
+      .justifyContent(FlexAlign.SpaceBetween)
+      .width('100%')
+      .padding(10);
+
+      Divider().width('100%').height(0.8)
+        .color("#e6e6e6");
+
+      Row() {
+        Text("Pickup Address:")
+          .fontSize(16)
+          .fontColor(Color.Black);
+        Blank();
+        Text(this.orderInfo?.address)
+          .fontColor(Color.Black)
+          .fontSize(14);
+      }
+      .justifyContent(FlexAlign.SpaceBetween)
+      .width('100%')
+      .padding(10);
+
+      Divider().width('100%').height(0.8)
+        .color("#e6e6e6");
+
+      Row() {
+        Text("Remarks:")
+          .fontSize(16)
+          .fontColor(Color.Black);
+        Blank();
+        Text(this.orderInfo?.msg !== '' ? this.orderInfo?.msg : "No remarks")
+          .fontColor(Color.Black)
+          .fontSize(14);
+      }
+      .justifyContent(FlexAlign.SpaceBetween)
+      .width('100%')
+      .padding(10);
+
+      Divider().width('100%').height(0.8)
+        .color("#e6e6e6");
+
+      Row() {
+        Text("Order No.:")
+          .fontSize(16)
+          .fontColor(Color.Black);
+        Blank();
+        Text(String(this.orderInfo?.id))
+          .fontColor(Color.Black)
+          .fontSize(14);
+      }
+      .justifyContent(FlexAlign.SpaceBetween)
+      .width('100%')
+      .padding(10);
+
+      Row() {
+        Text("Creation Time:")
+          .fontSize(16)
+          .fontColor(Color.Black);
+        Blank();
+        Text(this.orderInfo!.crete_time)
+          .fontColor(Color.Black)
+          .fontSize(14);
+      }
+      .justifyContent(FlexAlign.SpaceBetween)
+      .width('100%')
+      .padding(10);
+
+      Row() {
+        Text("Cancellation Time:")
+          .fontSize(16)
+          .fontColor(Color.Black);
+        Blank();
+        Text(this.orderInfo!.crete_time)
+          .fontColor(Color.Black)
+          .fontSize(14);
+      }
+      .visibility(this.orderInfo?.cancel_time !== null ? Visibility.Hidden : Visibility.None)
+      .justifyContent(FlexAlign.SpaceBetween)
+      .width('100%')
+      .padding(10);
+
+      Row() {
+        Text("Completion Time:")
+          .fontSize(16)
+          .fontColor(Color.Black);
+        Blank();
+        Text(this.orderInfo!.success_time)
+          .fontColor(Color.Black)
+          .fontSize(14);
+      }
+      .visibility(this.orderInfo?.success_time !== null ? Visibility.Hidden : Visibility.None)
+      .justifyContent(FlexAlign.SpaceBetween)
+      .width('100%')
+      .padding(10);
+    }
+    .height('100%')
+    .margin({ bottom: 50 })
+    .backgroundColor(Color.White)
+    .alignItems(HorizontalAlign.Start);
+  }
+  .height('100%')
+  .width('100%');
+}
+.backgroundColor(Color.White);
+
+
+
+
+
+
+This implements the points redemption order details page.
