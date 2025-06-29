@@ -1,0 +1,141 @@
+
+Technology Stack
+AppGallery Connect
+Development Preparation
+In the previous section, we implemented the details page for redeemable products, allowing users to view more information about each product. In this section, we will implement the product redemption functionality. When users click the "Redeem Now" button on the product details page, they should be directed to a redemption confirmation page. However, if a user's points are insufficient for redemption, prompting them on the confirmation page would require an extra step, which is suboptimal for user experience. Therefore, we will validate points before navigation and implement address addition on the confirmation page after validation.
+Functionality Analysis
+The product redemption validation will be implemented in two steps:
+
+After users enter the product details page, query their total points from the cloud database to perform validation.
+Implement an anti-misclick feature: when users click "Redeem Now," display a popup dialog to confirm the redemption intention.
+Code Implementation
+First, implement the validation by retrieving user data and querying user details:
+
+typescript
+@State user: User | null = null;
+@State userInfo: UserInfo | null = null;
+
+const value = await StorageUtils.getAll('user');
+if (value !== '') {
+  this.user = JSON.parse(value);
+}
+let condition = new cloudDatabase.DatabaseQuery(user_info);
+condition.equalTo("user_id", this.user?.user_id);
+let listData = await databaseZone.query(condition);
+let json1 = JSON.stringify(listData);
+let data2: UserInfo[] = JSON.parse(json1);
+this.userInfo = data2[0];
+
+With user details retrieved, implement the first-layer validation:
+
+typescript
+Text("Redeem Now")
+  .padding(10)
+  .width('45%')
+  .textAlign(TextAlign.Center)
+  .backgroundColor("#FCDB29")
+  .fontColor(Color.White)
+  .borderRadius(15)
+  .onClick(() => {
+    if (this.userInfo!.points > this.pointsProduct!.points) {
+      // Show popup
+    } else {
+      showToast("Insufficient points!");
+    }
+  })
+
+Continue with the redemption logic and implement a secondary confirmation popup:
+
+typescript
+@Preview
+@CustomDialog
+export struct CheckDialog {
+  controller: CustomDialogController;
+  public callback: () => void = (): void => {};
+  build() {
+    Column({ space: 20 }) {
+      Text("Reminder")
+        .fontSize($r('app.float.size_20'))
+        .fontWeight(FontWeight.Bold)
+        .fontColor(Color.Black)
+        .margin({ top: 20 });
+
+      Text("Are you sure you want to redeem this product?")
+        .fontSize($r('app.float.size_20'))
+        .fontWeight(FontWeight.Bold)
+        .fontColor(Color.Black)
+        .margin({ top: 20 });
+
+      Row() {
+        Text("Cancel")
+          .width('30%')
+          .textAlign(TextAlign.Center)
+          .height(40)
+          .fontSize(18)
+          .fontColor(Color.White)
+          .backgroundColor(0xff0000)
+          .borderRadius(30)
+          .margin({ top: 30 })
+          .onClick(() => {
+            this.controller.close();
+          });
+
+        Text("Confirm")
+          .width('30%')
+          .textAlign(TextAlign.Center)
+          .height(40)
+          .fontSize(18)
+          .fontColor(Color.White)
+          .backgroundColor(0xff0000)
+          .borderRadius(30)
+          .margin({ top: 30 })
+          .onClick(async () => {
+            this.callback();
+          });
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.SpaceAround);
+    }
+    .borderRadius({ topLeft: 20, topRight: 20 })
+    .justifyContent(FlexAlign.Start)
+    .backgroundColor(Color.White)
+    .height(400)
+    .width('100%');
+  }
+}
+
+Reference the popup dialog:
+
+typescript
+couponController: CustomDialogController | null = new CustomDialogController({
+  builder: CouponCheckDialog({
+    couponPrice: this.couponPrice,
+    price: this.price(),
+    onItemSelected: (coupon_id: number) => {
+      this.coupon_id = coupon_id;
+    }
+  }),
+  alignment: DialogAlignment.Bottom,
+  customStyle: false
+});
+
+Add the validation logic to the "Redeem Now" button:
+
+typescript
+Text("Redeem Now")
+  .padding(10)
+  .width('45%')
+  .textAlign(TextAlign.Center)
+  .backgroundColor("#FCDB29")
+  .fontColor(Color.White)
+  .borderRadius(15)
+  .onClick(() => {
+    if (this.userInfo!.points > this.pointsProduct!.points) {
+      this.checkController?.open();
+    } else {
+      showToast("Insufficient points!");
+    }
+  })
+
+
+This completes the implementation of product redemption validation.
