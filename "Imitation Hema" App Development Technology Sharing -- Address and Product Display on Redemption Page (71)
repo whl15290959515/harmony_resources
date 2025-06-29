@@ -1,0 +1,174 @@
+
+Technology Stack
+AppGallery Connect
+Development Preparation
+In the previous section, we implemented the validation function for product redemption, which helps users save time, reduces server overhead, and enhances business logic and functionality. In this section, we will implement the content after validation passes, including address selection and display of redemption product information.
+Functionality Analysis
+Address selection is implemented by retrieving addresses from the address management page. Product redemption information is displayed by querying with the product ID passed from the details page to ensure real-time data accuracy.
+Code Implementation
+First, implement address selection:
+
+typescript
+@State addressInfo: AddressList | null = null
+onPageShow(): void {
+  let params1 = router.getParams() as AddressModel
+  if (params1 != null && params1.address != undefined) {
+    this.addressInfo = JSON.parse(params1.address)
+  }
+}
+
+Query the corresponding product using the passed ID:
+
+typescript
+@State pointsProduct: PointsProduct | null = null
+
+async aboutToAppear(): Promise<void> {
+  let databaseZone = cloudDatabase.zone('default');
+  let product = await router.getParams() as ProductDetailModel;
+  let condition1 = new cloudDatabase.DatabaseQuery(points_product);
+  condition1.equalTo("id", product.id)
+  let productDetail = await databaseZone.query(condition1);
+  let json = JSON.stringify(productDetail)
+  let list: PointsProduct[] = JSON.parse(json)
+  this.pointsProduct = list[0]
+}
+
+Display the retrieved address information on the page:
+
+typescript
+if (this.addressInfo != null) {
+  Column({ space: 10 }) {
+    Row({ space: 20 }) {
+      Image($r('app.media.order_location'))
+        .height(20)
+        .width(20)
+      Column() {
+        Row() {
+          Text(this.addressInfo.nikeName)
+            .fontColor(Color.Black)
+            .fontSize(16)
+            .fontWeight(FontWeight.Bold)
+          Text(this.addressInfo.phone)
+            .fontColor(Color.Black)
+            .fontSize(16)
+            .fontWeight(FontWeight.Bold)
+            .margin({ left: 20 })
+        }
+
+        Text(this.addressInfo.administrativeArea + this.addressInfo.locality + this.addressInfo.subLocality + this.addressInfo.placeName + this.addressInfo.address)
+          .fontColor(Color.Black)
+          .fontSize(16)
+          .margin({ top: 10 })
+          .width('80%')
+      }
+      .alignItems(HorizontalAlign.Start)
+      .width('100%')
+
+    }
+  }
+  .alignItems(HorizontalAlign.Start)
+  .justifyContent(FlexAlign.Center)
+  .padding(15)
+  .width('100%')
+  .justifyContent(FlexAlign.SpaceBetween)
+  .onClick(() => {
+    let status: AddressPointsStatusModel = {
+      status: true
+    }
+    router.pushUrl({ url: 'pages/view/AddressListPage', params: status })
+  })
+
+} else {
+  Row({ space: 20 }) {
+    Image($r('app.media.order_location'))
+      .height(20)
+      .width(20)
+    Text("Please select a delivery address")
+      .fontColor(Color.Black)
+      .fontSize(16)
+    Blank()
+    Image($r('app.media.right'))
+      .height(20)
+      .width(20)
+  }
+  .padding(10)
+  .width('100%')
+  .justifyContent(FlexAlign.SpaceBetween)
+  .height(40)
+  .alignItems(VerticalAlign.Center)
+  .onClick(() => {
+    let status: AddressPointsStatusModel = {
+      status: true
+    }
+    router.pushUrl({ url: 'pages/view/AddressListPage', params: status })
+  })
+}
+
+Display the queried redemption product on the page:
+
+typescript
+Column() {
+  Row() {
+    Row({ space: 10 }) {
+      Image(this.pointsProduct?.url)
+        .height(70)
+        .width(70)
+        .margin({ left: 10 })
+        .borderRadius(10)
+      Column({ space: 5 }) {
+        Text(this.pointsProduct?.name)
+          .fontColor(Color.Black)
+          .fontSize(14)
+
+        Text(this.pointsProduct?.spec_str)
+          .fontColor(Color.Grey)
+          .fontSize(14)
+
+        Row() {
+          Text() {
+            Span("$ ")
+              .fontSize(14)
+              .fontColor(Color.Red)
+            Span(this.pointsProduct?.points + "")
+              .fontSize(16)
+              .fontColor(Color.Red)
+          }
+        }
+        .alignItems(VerticalAlign.Bottom)
+
+
+        Text("Quantity: " + this.pointsProduct?.amount)
+          .fontColor(Color.Black)
+          .fontColor(Color.Gray)
+          .fontSize(12)
+      }
+      .alignItems(HorizontalAlign.Start)
+
+    }
+
+    .justifyContent(FlexAlign.Start)
+    .alignItems(VerticalAlign.Top)
+
+
+    Blank()
+
+    Text("$ " + this.pointsProduct!.points * this.pointsProduct!.amount)
+      .fontColor(Color.Black)
+      .fontSize(14)
+  }
+  .padding(10)
+  .width('100%')
+  .alignItems(VerticalAlign.Top)
+  .justifyContent(FlexAlign.SpaceBetween)
+
+
+  Divider()
+    .width('100%')
+    .height(1)
+    .backgroundColor("#f7f7f7")
+
+}
+
+
+
+This implements the display logic for addresses and products on the redemption page.
