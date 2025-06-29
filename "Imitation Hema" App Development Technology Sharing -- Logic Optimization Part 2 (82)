@@ -1,0 +1,65 @@
+
+Technology Stack
+AppGallery Connect
+Development Preparation
+In this section, we continue optimizing existing business logic. Currently, after redeeming products with points, the points balance on the points display page does not update until the page is reloaded. Additionally, we need to add a "Confirm Receipt" button to the awaiting receipt order list and implement the corresponding database updates.
+Functionality Analysis
+Real-time Points Update: Fetch points data in the onPageShow lifecycle method to ensure the points balance updates every time the page is displayed.
+Confirm Receipt Functionality: Add a "Confirm Receipt" button to the awaiting receipt order list, update the order status in the database, and refresh the order list after successful update.
+Code Implementation
+Fetch points data in the onPageShow lifecycle method to update the points balance in real-time:
+
+typescript
+@State user: User | null = null;
+@State userInfo: UserInfo | null = null;
+
+async onPageShow(): Promise<void> {
+  const value = await StorageUtils.getAll('user');
+  if (value !== "") {
+    this.user = JSON.parse(value);
+    if (this.user !== null) {
+      let databaseZone = cloudDatabase.zone('default');
+      let condition = new cloudDatabase.DatabaseQuery(user_info);
+      condition.equalTo("user_id", this.user?.user_id);
+      let listData = await databaseZone.query(condition);
+      let json = JSON.stringify(listData);
+      let data: UserInfo[] = JSON.parse(json);
+      this.userInfo = data[0];
+      this.points = data[0].points;
+      hilog.error(0x0000, 'testTag', `Failed to query data, code: ${data}`);
+    }
+  }
+}
+
+Add a "Confirm Receipt" button to the awaiting receipt order list:
+
+typescript
+Text("Confirm Receipt")
+  .fontColor(Color.Black)
+  .fontSize(12)
+  .padding(5)
+  .borderRadius(10)
+  .backgroundColor(Color.Pink)
+  .onClick(async () => {
+    let orderPush = new order_list();
+    orderPush.id = item.id;
+    orderPush.user_id = this.user!.user_id;
+    orderPush.order_product_id = item.order_product_id;
+    orderPush.order_code = item.order_code;
+    orderPush.order_status = 2; // 2 indicates order received
+    orderPush.order_remark = item.order_remark;
+    orderPush.address = item.address;
+    orderPush.nickname = item.nickname;
+    orderPush.phone = item.phone;
+    orderPush.order_create_time = item.order_create_time;
+    orderPush.order_pay_time = item.order_pay_time;
+    orderPush.order_delivery_time = item.order_delivery_time;
+    let num = await databaseZone.upsert(orderPush);
+    if (num > 0) {
+      this.onRefresh();
+      showToast("Receipt confirmed successfully");
+    }
+  })
+
+
+This completes the optimization of real-time points updates and the confirm receipt functionality for product orders.
