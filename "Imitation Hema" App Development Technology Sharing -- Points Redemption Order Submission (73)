@@ -1,0 +1,255 @@
+
+Technology Stack
+AppGallery Connect
+Development Preparation
+In the previous section, we implemented the preparation page for redemption submission, displaying all relevant redemption information to users. In this section, we will implement the submission of points redemption orders.
+Functionality Analysis
+For order submission, we need to create a corresponding points redemption order information table to store data such as address, product details, points, remarks, order status, creation time, cancellation time, completion time, etc.
+Code Implementation
+First, create the points redemption order table:
+
+json
+{
+  "objectTypeName": "points_order_info",
+  "fields": [
+    {"fieldName": "id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "user_id", "fieldType": "String"},
+    {"fieldName": "order_code", "fieldType": "String"},
+    {"fieldName": "name", "fieldType": "String"},
+    {"fieldName": "points", "fieldType": "Double"},
+    {"fieldName": "msg", "fieldType": "String"},
+    {"fieldName": "amount", "fieldType": "Integer"},
+    {"fieldName": "nike_name", "fieldType": "String"},
+    {"fieldName": "address", "fieldType": "String"},
+    {"fieldName": "phone", "fieldType": "String"},
+    {"fieldName": "crete_time", "fieldType": "String"},
+    {"fieldName": "cancel_time", "fieldType": "String"},
+    {"fieldName": "over_time", "fieldType": "String"},
+    {"fieldName": "success_time", "fieldType": "String"},
+    {"fieldName": "order_type", "fieldType": "Integer"}
+  ],
+  "indexes": [
+    {"indexName": "field1Index", "indexList": [{"fieldName":"id","sortType":"ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+
+Entity Class
+
+typescript
+class PointsOrderInfo {
+    id: number;
+    user_id: string;
+    order_code: string;
+    name: string;
+    points: number;
+    msg: string;
+    amount: number;
+    nike_name: string;
+    address: string;
+    phone: string;
+    crete_time: string;
+    cancel_time: string;
+    over_time: string;
+    success_time: string;
+    order_type: number;
+
+    constructor() {
+    }
+
+    setId(id: number): void {
+        this.id = id;
+    }
+
+    getId(): number  {
+        return this.id;
+    }
+
+    setUser_id(user_id: string): void {
+        this.user_id = user_id;
+    }
+
+    getUser_id(): string  {
+        return this.user_id;
+    }
+
+    setOrder_code(order_code: string): void {
+        this.order_code = order_code;
+    }
+
+    getOrder_code(): string  {
+        return this.order_code;
+    }
+
+    setName(name: string): void {
+        this.name = name;
+    }
+
+    getName(): string  {
+        return this.name;
+    }
+
+    setPoints(points: number): void {
+        this.points = points;
+    }
+
+    getPoints(): number  {
+        return this.points;
+    }
+
+    setMsg(msg: string): void {
+        this.msg = msg;
+    }
+
+    getMsg(): string  {
+        return this.msg;
+    }
+
+    setAmount(amount: number): void {
+        this.amount = amount;
+    }
+
+    getAmount(): number  {
+        return this.amount;
+    }
+
+    setNike_name(nike_name: string): void {
+        this.nike_name = nike_name;
+    }
+
+    getNike_name(): string  {
+        return this.nike_name;
+    }
+
+    setAddress(address: string): void {
+        this.address = address;
+    }
+
+    getAddress(): string  {
+        return this.address;
+    }
+
+    setPhone(phone: string): void {
+        this.phone = phone;
+    }
+
+    getPhone(): string  {
+        return this.phone;
+    }
+
+    setCrete_time(crete_time: string): void {
+        this.crete_time = crete_time;
+    }
+
+    getCrete_time(): string  {
+        return this.crete_time;
+    }
+
+    setCancel_time(cancel_time: string): void {
+        this.cancel_time = cancel_time;
+    }
+
+    getCancel_time(): string  {
+        return this.cancel_time;
+    }
+
+    setOver_time(over_time: string): void {
+        this.over_time = over_time;
+    }
+
+    getOver_time(): string  {
+        return this.over_time;
+    }
+
+    setSuccess_time(success_time: string): void {
+        this.success_time = success_time;
+    }
+
+    getSuccess_time(): string  {
+        return this.success_time;
+    }
+
+    setOrder_type(order_type: number): void {
+        this.order_type = order_type;
+    }
+
+    getOrder_type(): number  {
+        return this.order_type;
+    }
+}
+
+export { PointsOrderInfo };
+
+DB Class
+
+typescript
+import { cloudDatabase } from '@kit.CloudFoundationKit';
+
+class points_order_info extends cloudDatabase.DatabaseObject {
+  public id: number;
+  public user_id: string;
+  public order_code: string;
+  public name: string;
+  public points: number;
+  public msg: string;
+  public amount: number;
+  public nike_name: string;
+  public address: string;
+  public phone: string;
+  public crete_time: string;
+  public cancel_time: string;
+  public over_time: string;
+  public success_time: string;
+  public order_type: number;
+
+  public naturalbase_ClassName(): string {
+    return 'points_order_info';
+  }
+}
+
+export { points_order_info };
+
+Implement order submission:
+
+typescript
+Text("Confirm Redemption")
+  .fontColor(Color.White)
+  .padding(10)
+  .borderRadius(10)
+  .backgroundColor("#d81e06")
+  .fontSize(14)
+  .onClick(async () => {
+    if (this.addressInfo != null) {
+      let order = new points_order_info();
+      order.id = Math.floor(Math.random() * 1000000);
+      order.user_id = String(this.user!.user_id);
+      order.order_code = Math.floor(Math.random() * 1000000) + "1013";
+      order.url = this.pointsProduct!.url;
+      order.name = this.pointsProduct!.name;
+      order.points = this.pointsProduct!.points;
+      if (this.remark != '') {
+        order.msg = this.remark;
+      } else {
+        order.msg = "No remarks";
+      }
+      order.amount = 1;
+      order.nike_name = this.addressInfo.nikeName;
+      order.address = this.addressInfo.address;
+      order.phone = this.addressInfo.phone;
+      order.crete_time = this.thisTime();
+      let num = await databaseZone.upsert(order);
+      if (num > 0) {
+        showToast("Redemption successful");
+      }
+    } else {
+      showToast("Please select an address");
+    }
+  })
+
+
+This completes the implementation of points redemption order submission.
