@@ -1,0 +1,227 @@
+
+
+Technology Stack
+AppGallery Connect
+
+Development Preparation
+In the previous section, we implemented the display of the points list, allowing users to intuitively view their points income and expenditure. However, currently there is no way to spend points. Therefore, we will now focus on developing the points redemption feature. This section covers the implementation of inserting data for points redeemable products.
+
+Functionality Analysis
+First, we need to create the corresponding points product table, entity class, and DB class. Since the table is currently empty, we will create a dedicated page to insert initial data during its lifecycle methods to facilitate subsequent development and testing.
+
+Code Implementation
+Create the corresponding table structure:
+
+json
+{
+  "objectTypeName": "points_product",
+  "fields": [
+    {"fieldName": "id", "fieldType": "Integer", "notNull": true, "belongPrimaryKey": true},
+    {"fieldName": "url", "fieldType": "String"},
+    {"fieldName": "name", "fieldType": "Text"},
+    {"fieldName": "points", "fieldType": "Double"},
+    {"fieldName": "amount", "fieldType": "Integer"},
+    {"fieldName": "text_message", "fieldType": "String"},
+    {"fieldName": "parameter", "fieldType": "String"},
+    {"fieldName": "delivery_time", "fieldType": "String"},
+    {"fieldName": "sales_volume", "fieldType": "Integer"},
+    {"fieldName": "spec_str", "fieldType": "String"},
+    {"fieldName": "max_loop_amount", "fieldType": "Integer"}
+  ],
+  "indexes": [
+    {"indexName": "field1Index", "indexList": [{"fieldName":"id","sortType":"ASC"}]}
+  ],
+  "permissions": [
+    {"role": "World", "rights": ["Read"]},
+    {"role": "Authenticated", "rights": ["Read", "Upsert"]},
+    {"role": "Creator", "rights": ["Read", "Upsert", "Delete"]},
+    {"role": "Administrator", "rights": ["Read", "Upsert", "Delete"]}
+  ]
+}
+
+Create the Entity Class
+
+typescript
+class PointsProduct {
+    id: number;
+    url: string;
+    name: string;
+    points: number;
+    amount: number;
+    text_message: string;
+    parameter: string;
+    delivery_time: string;
+    sales_volume: number;
+    spec_str: string;
+    max_loop_amount: number;
+
+    constructor() {
+    }
+
+    setId(id: number): void {
+        this.id = id;
+    }
+
+    getId(): number  {
+        return this.id;
+    }
+
+    setUrl(url: string): void {
+        this.url = url;
+    }
+
+    getUrl(): string  {
+        return this.url;
+    }
+
+    setName(name: string): void {
+        this.name = name;
+    }
+
+    getName(): string  {
+        return this.name;
+    }
+
+    setPoints(points: number): void {
+        this.points = points;
+    }
+
+    getPoints(): number  {
+        return this.points;
+    }
+
+    setAmount(amount: number): void {
+        this.amount = amount;
+    }
+
+    getAmount(): number  {
+        return this.amount;
+    }
+
+    setText_message(text_message: string): void {
+        this.text_message = text_message;
+    }
+
+    getText_message(): string  {
+        return this.text_message;
+    }
+
+    setParameter(parameter: string): void {
+        this.parameter = parameter;
+    }
+
+    getParameter(): string  {
+        return this.parameter;
+    }
+
+    setDelivery_time(delivery_time: string): void {
+        this.delivery_time = delivery_time;
+    }
+
+    getDelivery_time(): string  {
+        return this.delivery_time;
+    }
+
+    setSales_volume(sales_volume: number): void {
+        this.sales_volume = sales_volume;
+    }
+
+    getSales_volume(): number  {
+        return this.sales_volume;
+    }
+
+    setSpec_str(spec_str: string): void {
+        this.spec_str = spec_str;
+    }
+
+    getSpec_str(): string  {
+        return this.spec_str;
+    }
+
+    setMax_loop_amount(max_loop_amount: number): void {
+        this.max_loop_amount = max_loop_amount;
+    }
+
+    getMax_loop_amount(): number  {
+        return this.max_loop_amount;
+    }
+}
+
+export { PointsProduct };
+
+DB Class
+
+typescript
+import { cloudDatabase } from '@kit.CloudFoundationKit';
+
+class points_product extends cloudDatabase.DatabaseObject {
+  public id: number;
+  public url: string;
+  public name: string;
+  public points: number;
+  public amount: number;
+  public text_message: string;
+  public parameter: string;
+  public delivery_time: string;
+  public sales_volume: number;
+  public spec_str: string;
+  public max_loop_amount: number;
+
+  public naturalbase_ClassName(): string {
+    return 'points_product';
+  }
+}
+
+export { points_product };
+
+After creating the necessary classes, create a new page to insert data when the page loads:
+
+typescript
+import { points_product } from '../../clouddb/points_product'
+import { cloudDatabase } from '@kit.CloudFoundationKit';
+import showToast from '../../utils/ToastUtils';
+
+@Entry
+@Component
+struct PointsProductPage {
+  async aboutToAppear(): Promise<void> {
+    let databaseZone = cloudDatabase.zone('default');
+    let product = new points_product();
+    product.id = Math.floor(Math.random() * 1000000);
+    product.url = "Online image URL";
+    product.name = "Labubu";
+    product.points = 300000;
+    product.amount = 1;
+    product.text_message = "Collector's Edition Labubu";
+    product.parameter = "Store at room temperature";
+    product.delivery_time = "Ships immediately after redemption";
+    product.sales_volume = 9999;
+    product.spec_str = "Collector's Edition";
+    product.max_loop_amount = 1;
+    
+    let points_nums = await databaseZone.upsert(product);
+    if (points_nums > 0) {
+      showToast("Insertion successful");
+    }
+  }
+
+  build() {
+    RelativeContainer() {
+
+    }
+    .height('100%')
+    .width('100%')
+  }
+}
+
+
+
+Navigate to this new page via the points redemption button:
+
+typescript
+case "Points Redemption":
+  router.pushUrl({url:'pages/points/PointsProductPage'})
+  break;
+
+
+This completes the implementation of data insertion for points redeemable products.
