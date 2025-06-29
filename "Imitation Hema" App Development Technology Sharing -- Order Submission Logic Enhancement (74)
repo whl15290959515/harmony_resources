@@ -1,0 +1,69 @@
+
+Technology Stack
+AppGallery Connect
+Development Preparation
+In the previous section, we implemented the points redemption order submission and successfully pushed data to the cloud. However, the business logic is incomplete: points remain un-deducted, and consumption records are missing from the points page. This section focuses on enhancing the order submission logic.
+Functionality Analysis
+Deduct points from the user's account after successful redemption.
+Update the user information table via cloud interaction when the button is clicked.
+Create a points consumption record upon successful redemption.
+Code Implementation
+Update the user information table during order submission:
+
+typescript
+if (num > 0) {
+  showToast("Redemption successful");
+
+  let userData = new user_info();
+  userData.id = this.userInfo!.id;
+  userData.user_id = this.userInfo!.user_id;
+  userData.sex = this.userInfo!.sex;
+  userData.bind_phone = this.userInfo!.bind_phone;
+  userData.create_time = this.userInfo!.create_time;
+  userData.nickname = this.userInfo!.nickname;
+  userData.head_img = this.userInfo!.head_img;
+  userData.money = this.userInfo!.money;
+  userData.points = this.userInfo!.points - this.pointsProduct!.points;
+  let s = await databaseZone.upsert(userData);
+}
+
+After updating user information, create a points transaction record. First, implement a time acquisition method:
+
+typescript
+@State year: string = '';
+@State month: string = '';
+@State day: string = '';
+@State time: string = '';
+
+formatCurrent() {
+  const now = new Date();
+  const years = now.getFullYear();
+  const months = String(now.getMonth() + 1).padStart(2, '0');
+  const days = String(now.getDate()).padStart(2, '0');
+  const m_hours = String(now.getHours()).padStart(2, '0');
+  const m_minutes = String(now.getMinutes()).padStart(2, '0');
+  const m_seconds = String(now.getSeconds()).padStart(2, '0');
+  this.year = String(years);
+  this.month = months;
+  this.day = days;
+  this.time = m_hours + ":" + m_minutes + ":" + m_seconds;
+}
+
+Generate the points transaction record:
+
+typescript
+let points = new points_info();
+points.id = Math.floor(Math.random() * 1000000);
+points.user_id = this.user!.user_id;
+points.points = String(this.pointsProduct?.points);
+points.points_type = '1'; // '1' indicates expenditure
+points.address = 'Points redemption';
+points.year = this.year;
+points.month = this.month;
+points.day = this.day;
+points.time = this.time;
+points.create_time = this.year + "-" + this.month + "-" + this.day + " " + this.time;
+let points_nums = await databaseZone.upsert(points);
+
+
+This completes the enhancement of the order submission logic.
