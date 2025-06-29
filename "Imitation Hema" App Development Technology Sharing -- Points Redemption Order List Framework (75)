@@ -1,0 +1,87 @@
+
+Technology Stack
+AppGallery Connect
+Development Preparation
+In the previous section, we enhanced the business logic for order redemption, successfully updating user information and creating points consumption records after product redemption. This section focuses on implementing the framework for the order list page that appears after order creation.
+Functionality Analysis
+For the points redemption order list framework, we use tabs to enable page switching, allowing a single page to display orders in multiple statuses.
+Code Implementation
+First, implement the overall framework and define required parameters:
+
+typescript
+@State currentIndex: number = 0
+@State fontColor: string = '#182431';
+@State selectedFontColor: string = '#007DFF';
+@State selectedIndex: number = 0;
+private controller: TabsController = new TabsController();
+
+Custom TabBar layout:
+
+typescript
+@Builder tabBuilder(index: number, name: string) {
+  Column() {
+    Text(name)
+      .fontColor(this.selectedIndex === index ? this.selectedFontColor : this.fontColor)
+      .fontSize(16)
+      .fontWeight(this.selectedIndex === index ? 500 : 400)
+      .lineHeight(22)
+      .margin({ top: 17, bottom: 7 })
+    Divider()
+      .strokeWidth(2)
+      .width(40)
+      .color('#007DFF')
+      .opacity(this.selectedIndex === index ? 1 : 0)
+  }.width('100%')
+}
+
+Tabs implementation, assigning the index to the defined variable on switching:
+
+typescript
+Column() {
+  CommonTopBar({ title: "Redemption Orders", alpha: 0, titleAlignment: TextAlign.Center, backButton: true })
+  Tabs({ barPosition: BarPosition.Start, index: this.currentIndex, controller: this.controller }) {
+    TabContent() {
+      Column(){
+      }.width('100%').height('100%')
+    }.tabBar(this.tabBuilder(0, 'Awaiting Shipment'))
+
+    TabContent() {
+      Column(){
+      }.width('100%').height('100%')
+    }.tabBar(this.tabBuilder(1, 'Cancelled'))
+
+    TabContent() {
+      Column(){
+      }.width('100%').height('100%')
+    }.tabBar(this.tabBuilder(2, 'Awaiting Receipt'))
+
+    TabContent() {
+      Column(){
+      }.width('100%').height('100%')
+    }.tabBar(this.tabBuilder(3, 'Completed'))
+  }
+  .vertical(false)
+  .barMode(BarMode.Fixed)
+  .barWidth('100%')
+  .barHeight(56)
+  .animationDuration(0)
+  .onChange((index: number) => {
+    this.currentIndex = index;
+    this.selectedIndex = index;
+  })
+  .onAnimationStart((index: number, targetIndex: number, event: TabsAnimationEvent) => {
+    if (index === targetIndex) {
+      return;
+    }
+    this.selectedIndex = targetIndex;
+  })
+  .width('100%')
+  .height('100%')
+  .backgroundColor('#F1F3F5')
+}.width('100%')
+
+
+
+
+
+This completes the framework for the points redemption order list.
